@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#f5f2eb">
+<title>Trackr — UK Live Trains</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --cream:#f5f2eb;--warm:#ede8df;--paper:#faf8f4;--ink:#1a1208;--ink2:#3d3527;
+  --muted:#9b9080;--rule:#ddd8ce;--green:#2d6a4f;--green-bg:#eaf3ee;
+  --amber:#b5620f;--amber-bg:#fdf2e4;--red:#c0392b;--red-bg:#fdecea;
+  --serif:'Playfair Display',Georgia,serif;--sans:'Outfit',sans-serif;--accent:#e85d26;
+}
+html,body{height:100%;background:var(--cream);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
+.app{max-width:430px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--cream);}
+
+/* HEADER */
+header{padding:22px 24px 0;flex-shrink:0;}
+.header-row{display:flex;align-items:flex-start;justify-content:space-between;}
+.wordmark{font-family:var(--serif);font-weight:900;font-size:34px;line-height:0.9;letter-spacing:-2px;}
+.wordmark em{font-style:italic;color:var(--accent);}
+.header-right{display:flex;gap:7px;align-items:center;margin-top:5px;}
+.live-pill{display:flex;align-items:center;gap:5px;background:var(--green-bg);color:var(--green);border:1px solid rgba(45,106,79,0.2);border-radius:20px;padding:5px 10px;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1.8s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.hdr-btn{background:var(--paper);border:1.5px solid var(--rule);border-radius:20px;padding:5px 11px;font-size:11px;font-weight:600;color:var(--ink2);cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:4px;white-space:nowrap;}
+.hdr-btn .s{color:#e8a020;}
+.header-rule{height:1px;background:var(--rule);margin:14px 0 0;}
+
+/* SEARCH */
+.search-section{padding:16px 24px 0;flex-shrink:0;}
+.search-box{background:var(--paper);border:1.5px solid var(--rule);border-radius:20px;position:relative;box-shadow:0 2px 12px rgba(0,0,0,0.06);}
+.station-field{display:flex;align-items:center;padding:13px 18px;gap:12px;position:relative;}
+.station-field:first-of-type{border-bottom:1.5px solid var(--rule);}
+.field-icon{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--serif);flex-shrink:0;}
+.field-icon.from{background:var(--ink);color:var(--cream);}
+.field-icon.to{background:var(--accent);color:white;}
+.field-wrap{flex:1;position:relative;}
+.field-label{font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:1px;}
+.station-input{width:100%;background:transparent;border:none;outline:none;font-family:var(--sans);font-size:15px;font-weight:500;color:var(--ink);caret-color:var(--accent);}
+.station-input::placeholder{color:var(--rule);}
+.swap-btn{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:32px;height:32px;background:var(--cream);border:1.5px solid var(--rule);border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.08);z-index:10;transition:all 0.2s;}
+.swap-btn:active{background:var(--ink);border-color:var(--ink);}
+.swap-btn:active svg{color:white;}
+.swap-btn svg{width:14px;height:14px;color:var(--ink2);}
+
+/* DATE/TIME CONTROLS */
+.dt-controls{margin-top:10px;display:flex;flex-direction:column;gap:8px;}
+.dt-row1{display:flex;gap:6px;align-items:center;}
+.dt-row2{display:none;background:var(--paper);border:1.5px solid var(--rule);border-radius:14px;padding:10px 14px;gap:0;}
+.dt-row2.show{display:flex;flex-direction:column;gap:8px;}
+.dt-field{display:flex;align-items:center;gap:8px;}
+.dt-field:first-child{padding-bottom:8px;border-bottom:1px solid var(--rule);}
+.dt-field-lbl{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);width:36px;flex-shrink:0;}
+.dt-field input{flex:1;border:none;background:transparent;font-family:var(--sans);font-size:14px;font-weight:500;color:var(--ink);outline:none;}
+.dt-tab{flex-shrink:0;font-size:11px;font-weight:500;color:var(--muted);padding:6px 13px;border-radius:20px;border:1.5px solid transparent;cursor:pointer;background:transparent;transition:all 0.15s;font-family:var(--sans);}
+.dt-tab.active{color:var(--ink);background:var(--paper);border-color:var(--rule);box-shadow:0 1px 4px rgba(0,0,0,0.07);}
+.go-btn{margin-left:auto;flex-shrink:0;background:var(--ink);color:var(--cream);border:none;padding:8px 20px;border-radius:20px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;}
+.go-btn:active{transform:scale(0.97);}
+
+/* AUTOCOMPLETE */
+.ac-dd{display:none;position:absolute;top:calc(100% + 6px);left:-1.5px;right:-1.5px;background:var(--paper);border:1.5px solid var(--rule);border-radius:16px;z-index:400;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.13);max-height:260px;overflow-y:auto;scrollbar-width:none;}
+.ac-dd::-webkit-scrollbar{display:none;}
+.ac-dd.open{display:block;}
+.ac-it{display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer;border-bottom:1px solid var(--rule);transition:background 0.1s;}
+.ac-it:last-child{border-bottom:none;}
+.ac-it.all-term{background:rgba(232,93,38,0.06);border-bottom:1px solid var(--rule);}
+.ac-it.all-term .ac-crs{color:var(--accent);}
+.ac-it.all-term .ac-nm{color:var(--accent);font-weight:600;}
+.ac-crs{font-family:var(--serif);font-weight:700;font-size:12px;color:var(--accent);width:30px;flex-shrink:0;}
+.ac-nm{font-size:13px;font-weight:500;color:var(--ink);}
+.ac-nm mark{background:none;color:var(--accent);font-weight:600;}
+
+/* SECTIONS */
+.sec{padding:14px 24px 0;flex-shrink:0;}
+.sec-hd{font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:9px;}
+.chip-row{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
+.chip-row::-webkit-scrollbar{display:none;}
+.pop-chip{flex-shrink:0;display:flex;flex-direction:column;background:var(--paper);border:1.5px solid var(--rule);border-radius:11px;padding:8px 12px;cursor:pointer;transition:all 0.15s;min-width:100px;}
+.pop-chip:active{border-color:var(--accent);background:var(--warm);}
+.pop-r{font-size:12px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:3px;}
+.pop-a{color:var(--muted);font-size:11px;}
+.pop-l{font-size:10px;color:var(--muted);margin-top:2px;}
+.fav-chip{flex-shrink:0;display:flex;align-items:center;gap:6px;background:var(--paper);border:1.5px solid rgba(232,160,32,0.4);border-radius:11px;padding:8px 11px;cursor:pointer;transition:all 0.15s;max-width:150px;}
+.fav-chip:active{background:var(--warm);}
+.fav-star-sm{color:#e8a020;font-size:12px;flex-shrink:0;}
+.fav-nm{font-size:11px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fav-sub{font-size:10px;color:var(--muted);}
+
+/* DIVIDER */
+.divider{height:1px;background:var(--rule);margin:14px 24px 0;}
+
+/* RESULTS */
+.results-section{flex:1;overflow-y:auto;padding:12px 24px 32px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.results-section::-webkit-scrollbar{display:none;}
+
+/* STATES */
+.loading-state{display:none;padding:44px 0;text-align:center;}
+.loading-state.show{display:block;}
+.spinner{width:40px;height:40px;border-radius:50%;border:2.5px solid var(--rule);border-top-color:var(--accent);animation:spin 0.85s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-lbl{font-size:12px;color:var(--muted);font-weight:500;}
+.empty-state{padding:48px 0;text-align:center;}
+.empty-ico{font-family:var(--serif);font-size:48px;font-weight:900;font-style:italic;color:var(--rule);line-height:1;margin-bottom:10px;}
+.empty-ttl{font-size:16px;font-weight:600;color:var(--ink2);margin-bottom:4px;}
+.empty-sub{font-size:12px;color:var(--muted);}
+.err-box{background:var(--red-bg);border:1.5px solid rgba(192,57,43,0.2);border-radius:14px;padding:14px 16px;margin-bottom:12px;font-size:13px;color:var(--red);line-height:1.6;}
+.err-box strong{display:block;margin-bottom:3px;font-size:14px;}
+
+/* RESULT HEADER */
+.res-hdr{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;}
+.res-rt{font-family:var(--serif);font-size:20px;font-weight:700;color:var(--ink);flex:1;line-height:1.1;}
+.res-ct{font-size:11px;color:var(--muted);font-weight:500;}
+
+/* TRAIN CARD */
+.train-card{background:var(--paper);border:1.5px solid var(--rule);border-radius:16px;margin-bottom:9px;overflow:hidden;cursor:pointer;transition:border-color 0.15s,transform 0.15s;animation:fadeUp 0.28s ease both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(7px);}to{opacity:1;transform:translateY(0);}}
+.train-card:active{transform:scale(0.99);border-color:var(--ink2);}
+.train-card.delayed{border-left:4px solid var(--amber);}
+.train-card.cancelled{border-left:4px solid var(--red);opacity:0.7;}
+.train-card.on-time{border-left:4px solid var(--green);}
+.card-body{padding:13px 15px 10px;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;}
+.tc{display:flex;flex-direction:column;gap:2px;}
+.dep{font-family:var(--serif);font-size:24px;font-weight:700;line-height:1;color:var(--ink);letter-spacing:-0.5px;}
+.arr{font-size:11px;color:var(--muted);}
+.mc{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.dur-lbl{font-size:10px;font-weight:600;color:var(--muted);}
+.rail-line{width:100%;height:1.5px;background:var(--rule);position:relative;}
+.rail-line::before,.rail-line::after{content:'';position:absolute;top:50%;transform:translateY(-50%);width:5px;height:5px;border-radius:50%;background:var(--muted);}
+.rail-line::after{right:0;}
+.stops-tag{font-size:10px;color:var(--muted);font-weight:500;}
+.stops-tag.direct{color:var(--green);font-weight:600;}
+.rc{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+.sc{font-size:10px;font-weight:600;padding:3px 8px;border-radius:6px;}
+.sc.on-time{background:var(--green-bg);color:var(--green);}
+.sc.delayed{background:var(--amber-bg);color:var(--amber);}
+.sc.cancelled{background:var(--red-bg);color:var(--red);}
+.plt-tag{font-size:11px;color:var(--muted);}
+.plt-tag strong{color:var(--ink);}
+.card-foot{padding:7px 15px;border-top:1px solid var(--rule);display:flex;align-items:center;gap:8px;}
+.opr{font-size:11px;color:var(--muted);flex:1;}
+.fav-btn{font-size:16px;cursor:pointer;transition:transform 0.15s;color:var(--rule);line-height:1;padding:2px;}
+.fav-btn.starred{color:#e8a020;}
+.fav-btn:active{transform:scale(1.35);}
+
+/* LOAD MORE / EARLIER */
+.page-btn{width:100%;padding:12px;background:var(--paper);border:1.5px solid var(--rule);border-radius:13px;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all 0.15s;margin-bottom:9px;}
+.page-btn:active,.page-btn:hover{background:var(--warm);}
+.page-btn.busy{opacity:0.55;pointer-events:none;}
+.page-btn.earlier{margin-bottom:0;margin-top:0;}
+
+/* BOTTOM SHEET */
+.overlay{display:none;position:fixed;inset:0;background:rgba(26,18,8,0.45);z-index:500;align-items:flex-end;backdrop-filter:blur(3px);}
+.overlay.open{display:flex;}
+.sheet{background:var(--paper);width:100%;max-width:430px;margin:0 auto;border-radius:24px 24px 0 0;max-height:88vh;overflow-y:auto;scrollbar-width:none;animation:shUp 0.27s cubic-bezier(0.32,0.72,0,1);}
+.sheet::-webkit-scrollbar{display:none;}
+@keyframes shUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.sh-handle{width:40px;height:4px;background:var(--rule);border-radius:2px;margin:12px auto 0;}
+.sh-header{padding:16px 22px 13px;border-bottom:1px solid var(--rule);}
+.sh-title{font-family:var(--serif);font-size:21px;font-weight:700;color:var(--ink);margin-bottom:3px;}
+.sh-meta{font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;}
+.sh-meta span{display:flex;align-items:center;gap:4px;}
+.sdot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.sdot.on-time{background:var(--green);}
+.sdot.delayed{background:var(--amber);}
+.sdot.cancelled{background:var(--red);}
+.sh-body{padding:16px 22px 8px;}
+.sh-sec-lbl{font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:13px;}
+.stop-row{display:flex;gap:13px;}
+.stop-left{display:flex;flex-direction:column;align-items:center;width:13px;flex-shrink:0;}
+.stop-dot{width:11px;height:11px;border-radius:50%;background:var(--paper);border:2px solid var(--muted);flex-shrink:0;margin-top:3px;z-index:1;}
+.stop-dot.term{background:var(--ink);border-color:var(--ink);width:13px;height:13px;margin-top:2px;}
+.stop-dot.done{background:var(--muted);border-color:var(--muted);}
+.stop-conn{flex:1;width:1.5px;background:var(--rule);min-height:28px;}
+.stop-info{flex:1;padding-bottom:20px;}
+.stop-nm{font-size:13px;font-weight:500;color:var(--ink);}
+.stop-times{display:flex;gap:12px;margin-top:3px;flex-wrap:wrap;}
+.st-blk{display:flex;flex-direction:column;gap:1px;}
+.st-lbl{font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.st-val{font-size:13px;font-weight:500;color:var(--ink);}
+.st-val.late{color:var(--amber);}
+.st-val.done{color:var(--green);}
+.st-val.cxl{color:var(--red);}
+.stop-plt{font-size:11px;color:var(--muted);margin-top:2px;}
+.stop-plt strong{color:var(--ink);}
+/* TRAIN POSITION TRACKER */
+.train-tracker{margin:0 0 16px;padding:14px 16px;background:var(--paper);border:1.5px solid var(--rule);border-radius:14px;}
+.tracker-label{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.tracker-bar-wrap{position:relative;display:flex;align-items:center;height:32px;}
+.tracker-bar{flex:1;height:4px;background:var(--rule);border-radius:2px;overflow:visible;position:relative;}
+.tracker-fill{height:100%;background:var(--accent);border-radius:2px;}
+.tracker-train-icon{position:absolute;top:50%;transform:translate(-50%,-50%);font-size:20px;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.25));}
+.tracker-ends{display:flex;justify-content:space-between;margin-top:4px;}
+.tracker-end-nm{font-size:9px;color:var(--muted);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tracker-end-nm.right{text-align:right;}
+.tracker-between{font-size:11px;color:var(--ink2);margin-top:6px;text-align:center;}
+.tracker-between strong{color:var(--accent);}
+.sh-close{width:calc(100% - 44px);margin:8px 22px 32px;padding:13px;background:var(--warm);border:1.5px solid var(--rule);border-radius:12px;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer;}
+
+/* FAV SHEET */
+.pn-header{padding:16px 22px 13px;border-bottom:1px solid var(--rule);}
+.pn-title{font-family:var(--serif);font-size:21px;font-weight:700;}
+.pn-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+.pn-body{padding:4px 22px;}
+.fav-row{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid var(--rule);gap:12px;cursor:pointer;}
+.fav-row:last-child{border-bottom:none;}
+.fav-row-star{font-size:19px;color:#e8a020;flex-shrink:0;}
+.fav-row-info{flex:1;min-width:0;}
+.fav-row-nm{font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fav-row-sub{font-size:11px;color:var(--muted);margin-top:1px;}
+.fav-row-del{font-size:17px;color:var(--muted);cursor:pointer;padding:5px;flex-shrink:0;}
+.pn-empty{padding:28px 0;text-align:center;color:var(--muted);font-size:13px;line-height:1.6;}
+.pn-close{width:calc(100% - 44px);margin:14px 22px 32px;padding:13px;background:var(--warm);border:1.5px solid var(--rule);border-radius:12px;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer;}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="header-row">
+      <div class="wordmark">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;margin-right:6px;margin-bottom:4px;">
+          <!-- Train body -->
+          <rect x="3" y="6" width="22" height="14" rx="4" fill="var(--ink)"/>
+          <!-- Cab window -->
+          <rect x="17" y="9" width="5" height="5" rx="1.5" fill="var(--cream)" opacity="0.9"/>
+          <!-- Passenger windows -->
+          <rect x="5" y="9" width="4" height="5" rx="1.2" fill="var(--cream)" opacity="0.7"/>
+          <rect x="11" y="9" width="4" height="5" rx="1.2" fill="var(--cream)" opacity="0.7"/>
+          <!-- Stripe -->
+          <rect x="3" y="15.5" width="22" height="2" fill="var(--accent)" opacity="0.85"/>
+          <!-- Wheels -->
+          <circle cx="8" cy="22" r="2.5" fill="var(--ink2)"/>
+          <circle cx="8" cy="22" r="1" fill="var(--rule)"/>
+          <circle cx="20" cy="22" r="2.5" fill="var(--ink2)"/>
+          <circle cx="20" cy="22" r="1" fill="var(--rule)"/>
+          <!-- Rail -->
+          <line x1="0" y1="25" x2="28" y2="25" stroke="var(--rule)" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>Tr<em>ackr</em>
+      </div>
+      <div class="header-right">
+        <button class="hdr-btn" id="favsBtn"><span class="s">★</span> Favourites</button>
+        <div class="live-pill"><div class="live-dot"></div>Live</div>
+      </div>
+    </div>
+    <div class="header-rule"></div>
+  </header>
+
+  <div class="search-section">
+    <div class="search-box">
+      <div class="station-field">
+        <div class="field-icon from">A</div>
+        <div class="field-wrap">
+          <div class="field-label">From</div>
+          <input class="station-input" id="fromInput" placeholder="e.g. Leeds" autocomplete="off" spellcheck="false">
+          <div class="ac-dd" id="fromAC"></div>
+        </div>
+      </div>
+      <div class="station-field">
+        <div class="field-icon to">B</div>
+        <div class="field-wrap">
+          <div class="field-label">To</div>
+          <input class="station-input" id="toInput" placeholder="e.g. Thornaby" autocomplete="off" spellcheck="false">
+          <div class="ac-dd" id="toAC"></div>
+        </div>
+        <button class="swap-btn" id="swapBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 16V4m0 0L3 8m4-4l4 4"/><path d="M17 8v12m0 0l4-4m-4 4l-4-4"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="dt-controls" id="dtControls">
+      <div class="dt-row1">
+        <button class="dt-tab active" data-mode="now">Now</button>
+        <button class="dt-tab" data-mode="time">At time</button>
+        <button class="dt-tab" data-mode="date">Pick date</button>
+        <button class="go-btn" id="goBtn">Search →</button>
+      </div>
+      <div class="dt-row2" id="dtRow2">
+        <div class="dt-field" id="dtDateField" style="display:none;">
+          <span class="dt-field-lbl">Date</span>
+          <input type="date" id="dateInput">
+        </div>
+        <div class="dt-field">
+          <span class="dt-field-lbl">Time</span>
+          <input type="time" id="timeInput">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-hd">Popular routes</div>
+    <div class="chip-row" id="popularList"></div>
+  </div>
+
+  <div class="sec" id="favSection" style="display:none;">
+    <div class="sec-hd">★ Favourites</div>
+    <div class="chip-row" id="favStrip"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="results-section" id="resultsSection">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-ico">⊙</div>
+      <div class="empty-ttl">Where to?</div>
+      <div class="empty-sub">Enter two stations to see live departures</div>
+    </div>
+    <div class="loading-state" id="loadingState">
+      <div class="spinner"></div>
+      <div class="loading-lbl" id="loadingLbl">Fetching live trains…</div>
+    </div>
+    <div id="resultsList"></div>
+  </div>
+</div>
+
+<!-- DETAIL SHEET -->
+<div class="overlay" id="sheetOverlay">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-header">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <div style="flex:1;">
+          <div class="sh-title" id="shTitle"></div>
+          <div class="sh-meta" id="shMeta"></div>
+        </div>
+        <button id="shFavBtn" style="background:none;border:none;font-size:26px;cursor:pointer;padding:2px 4px;line-height:1;color:var(--rule);flex-shrink:0;" title="Star this train">☆</button>
+      </div>
+    </div>
+    <div class="sh-body">
+      <div id="trainTracker" style="display:none;" class="train-tracker"></div>
+      <div class="sh-sec-lbl">Calling at</div>
+      <div id="stopsList"></div>
+    </div>
+    <button class="sh-close" id="shClose">Close</button>
+  </div>
+</div>
+
+<!-- FAVOURITES PANEL -->
+<div class="overlay" id="panelOverlay">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="pn-header">
+      <div class="pn-title">★ Favourites</div>
+      <div class="pn-sub" id="pnSub">Up to 5 saved trains</div>
+    </div>
+    <div class="pn-body" id="pnBody"></div>
+    <button class="pn-close" id="pnClose">Close</button>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════
+const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
+const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
+
+function apiUrl(path, params = {}) {
+  const p = new URLSearchParams({ accessToken: HUXLEY_TOKEN, ...params });
+  return `${HUXLEY_BASE}${path}?${p}`;
+}
+
+// ════════════════════════════════════════
+// STATIONS — full UK list with multi-word search
+// ════════════════════════════════════════
+const RAW_STATIONS = [
+["Abbey Wood","ABW"],["Aber","ABE"],["Abercynon","ACY"],["Aberdare","ABA"],["Aberdeen","ABD"],
+["Aberdour","AUR"],["Abergavenny","AGV"],["Abergele & Pensarn","AGL"],["Aberystwyth","AYW"],
+["Accrington","ACR"],["Acton Bridge","ACB"],["Acton Central","ACC"],["Acton Main Line","AML"],
+["Addlestone","ADD"],["Adlington (Cheshire)","ADC"],["Adlington (Lancashire)","ADL"],
+["Adwick","AWK"],["Aigburth","AIG"],["Ainsdale","ANS"],["Aintree","AIN"],["Airdrie","ADR"],
+["Alderley Edge","ALD"],["Aldershot","AHT"],["Alexandria","ALX"],["Alfreton","ALF"],
+["Alloa","ALO"],["Alnmouth","ALM"],["Alton","AON"],["Altrincham","ALT"],["Alvechurch","ALV"],
+["Amersham","AMR"],["Andover","ADV"],["Anerley","ANL"],["Angmering","ANG"],["Annan","ANN"],
+["Anniesland","ANI"],["Apperley Bridge","APY"],["Appleby","APP"],["Arbroath","ARB"],
+["Ardrossan Harbour","ARH"],["Ardrossan South Beach","ADS"],["Ardrossan Town","ADN"],
+["Arisaig","ARI"],["Arlesey","ARL"],["Armadale","ARM"],["Arundel","ARU"],["Ascot","ACT"],
+["Ash","ASH"],["Ash Vale","AHV"],["Ashchurch for Tewkesbury","ASC"],["Ashford (Kent)","AFK"],
+["Ashford (Surrey)","AFS"],["Ashtead","AHD"],["Ashton-under-Lyne","AHN"],["Askam","ASK"],
+["Aspatria","ASP"],["Auchinleck","AUK"],["Aviemore","AVM"],["Avonmouth","AVN"],
+["Axminster","AXM"],["Aylesbury","AYS"],["Aylesbury Vale Parkway","AVP"],["Aylesford","AYL"],
+["Ayr","AYR"],["Bagshot","BAG"],["Baildon","BLD"],["Balcombe","BAB"],["Baldock","BDK"],
+["Balham","BAL"],["Balloch","BHC"],["Bamber Bridge","BBG"],["Bamford","BAM"],["Banbury","BAN"],
+["Bangor (Wales)","BNG"],["Bank Hall","BAH"],["Bardon Mill","BLL"],["Bare Lane","BAR"],
+["Bargoed","BGD"],["Barking","BKG"],["Barnehurst","BNH"],["Barnes","BNS"],
+["Barnes Bridge","BNB"],["Barnetby","BTB"],["Barnham","BAA"],["Barnsley","BNY"],
+["Barnstaple","BNP"],["Barnt Green","BTG"],["Barrhead","BRR"],["Barrhill","BRL"],
+["Barry","BAR"],["Barry Docks","BYD"],["Barry Island","BYI"],["Barrow Haven","BAV"],
+["Barrow-in-Furness","BIF"],["Barrow-upon-Soar","BWS"],["Basildon","BSO"],["Basingstoke","BSK"],
+["Bat & Ball","BBL"],["Bath Spa","BTH"],["Bathgate","BHG"],["Battersby","BTT"],
+["Bearsted","BSD"],["Beattock","BEA"],["Bebington","BEB"],["Beckenham Hill","BEC"],
+["Beckenham Junction","BKJ"],["Bedford","BDM"],["Bedlington","BDL"],["Bedminster","BMT"],
+["Bedwyn","BDW"],["Beeston","BEE"],["Bellgrove","BLG"],["Bellshill","BLH"],["Belper","BLP"],
+["Berwick-upon-Tweed","BWK"],["Bescot Stadium","BSC"],["Beverley","BEV"],
+["Bicester North","BCS"],["Bicester Village","BVS"],["Bickley","BKL"],["Bidston","BID"],
+["Biggleswade","BIW"],["Billingham","BIL"],["Birchington-on-Sea","BCH"],["Birchwood","BWD"],
+["Birkenhead Central","BKC"],["Birkenhead Hamilton Square","BKQ"],["Birkenhead North","BKN"],
+["Birkenhead Park","BKP"],["Birmingham International","BHI"],["Birmingham Moor Street","BMO"],
+["Birmingham New Street","BHM"],["Birmingham Snow Hill","BSW"],["Bishop Auckland","BAU"],
+["Bishopbriggs","BBG"],["Bishopstone","BIP"],["Blackburn","BBN"],["Blackheath","BKH"],
+["Blackpool North","BPN"],["Blackpool Pleasure Beach","BPB"],["Blackpool South","BPS"],
+["Blackrod","BRD"],["Blake Street","BKT"],["Blakedown","BKD"],["Blantyre","BLT"],
+["Bletchley","BLY"],["Bodmin Parkway","BOD"],["Bolton","BON"],["Bootle (Cumbria)","BOC"],
+["Bootle New Strand","BNS"],["Bootle Oriel Road","BOT"],["Boston","BSN"],["Bourne End","BNE"],
+["Bournemouth","BMH"],["Bowes Park","BOP"],["Box Hill & Westhumble","BXW"],["Bracknell","BCE"],
+["Bradford Forster Square","BDQ"],["Bradford Interchange","BDI"],["Braintree","BTR"],
+["Braintree Freeport","BTP"],["Bramhall","BML"],["Bramley (Hampshire)","BMY"],
+["Bramley (West Yorkshire)","BLE"],["Brampton (Cumbria)","BMP"],["Breich","BRC"],
+["Brentford","BFD"],["Brentwood","BRE"],["Bridgend","BGN"],["Bridgeton","BGT"],
+["Bridgwater","BWT"],["Bridlington","BDT"],["Brighouse","BGH"],["Brighton","BTN"],
+["Bristol Parkway","BPW"],["Bristol Temple Meads","BRI"],["Brixton","BRX"],
+["Broad Green","BGE"],["Broadbottom","BDB"],["Broadstairs","BSR"],["Brockenhurst","BCU"],
+["Brockley","BCY"],["Bromborough","BMR"],["Bromley Cross","BMC"],["Bromley North","BMN"],
+["Bromley South","BMS"],["Bromsgrove","BMV"],["Broxbourne","BXB"],["Brundall","BRU"],
+["Burgess Hill","BUG"],["Burnage","BNA"],["Burnham","BNM"],["Burnley Barracks","BUB"],
+["Burnley Central","BNC"],["Burnley Manchester Road","BYM"],["Burscough Bridge","BCB"],
+["Burscough Junction","BCJ"],["Burton-on-Trent","BUT"],["Bury St Edmunds","BSE"],
+["Bushey","BSH"],["Buxted","BXD"],["Buxton","BUX"],["Byfleet & New Haw","BFN"],
+["Cadoxton","CAD"],["Caerphilly","CPH"],["Caersws","CWS"],["Caldercruix","CAC"],
+["Caldicot","CDT"],["Camberley","CAM"],["Cambridge","CBG"],["Cambridge North","CMB"],
+["Cambuslang","CBL"],["Camden Road","CMD"],["Canterbury East","CBE"],["Canterbury West","CBW"],
+["Cardiff Bay","CDB"],["Cardiff Central","CDF"],["Cardiff Queen Street","CDQ"],
+["Cardross","CDR"],["Carlisle","CAR"],["Carnforth","CNF"],["Carntyne","CAT"],
+["Carpenders Park","CPK"],["Castle Cary","CLC"],["Castleford","CFD"],["Caterham","CAH"],
+["Catford","CAT"],["Catford Bridge","CTF"],["Chadwell Heath","CTH"],
+["Chafford Hundred","CFH"],["Chalfont & Latimer","CFO"],["Chandlers Ford","CFL"],
+["Charlbury","CEY"],["Charlton","CTN"],["Chatham","CTM"],["Cheadle Hulme","CHU"],
+["Chelmsford","CHM"],["Cheltenham Spa","CNM"],["Chepstow","CPW"],["Chertsey","CHY"],
+["Chessington North","CSN"],["Chessington South","CSS"],["Chester","CTR"],
+["Chester Road","CRD"],["Chester-le-Street","CLS"],["Chesterfield","CHD"],
+["Chichester","CCH"],["Chilworth","CHL"],["Chingford","CHI"],["Chippenham","CPM"],
+["Chorley","CRL"],["Chorleywood","CLW"],["Christchurch","CHR"],
+["Church & Oswaldtwistle","CTW"],["Church Fenton","CHF"],["Church Stretton","CTT"],
+["Clacton-on-Sea","CLT"],["Clapham High Street","CLP"],["Clapham Junction","CLJ"],
+["Clapton","CPT"],["Clarbeston Road","CLR"],["Cleland","CEA"],["Clifton Down","CFN"],
+["Clunderwen","CUW"],["Coatbridge Central","CBC"],["Coatbridge Sunnyside","CBS"],
+["Coatdyke","COA"],["Cobham & Stoke D'Abernon","CSD"],["Codsall","COD"],
+["Colchester","COL"],["Colchester Town","CET"],["Coleshill Parkway","CEH"],["Colne","CNE"],
+["Colwall","CWL"],["Congleton","CGN"],["Cooden Beach","COB"],["Corbridge","COR"],
+["Cosford","CFD"],["Cosham","CSA"],["Cottingham","COT"],["Coulsdon South","CDS"],
+["Coulsdon Town","CDN"],["Coventry","COV"],["Cowdenbeath","COW"],["Cradley Heath","CRA"],
+["Craven Arms","CRV"],["Crawley","CWY"],["Cressington","CSG"],["Crewkerne","CWN"],
+["Cricklewood","CRI"],["Croy","CRO"],["Crystal Palace","CYP"],["Cupar","CUP"],
+["Cuxton","CUX"],["Dagenham Dock","DDK"],["Dalmuir","DMR"],["Dalreoch","DLR"],
+["Dalston Kingsland","DLK"],["Darlington","DAR"],["Dartford","DTF"],["Datchet","DAT"],
+["Davenport","DVN"],["Deal","DEA"],["Deighton","DHN"],["Denby Dale","DBD"],["Derby","DBY"],
+["Dewsbury","DEW"],["Didcot Parkway","DID"],["Dingwall","DIN"],["Dinsdale","DSD"],
+["Diss","DIS"],["Doncaster","DON"],["Dorchester South","DCH"],["Dorchester West","DCW"],
+["Dorking","DKG"],["Dorking West","DKW"],["Dorridge","DDG"],["Downham Market","DOW"],
+["Driffield","DRF"],["Droitwich Spa","DTW"],["Drumchapel","DMC"],["Dumbarton Central","DBC"],
+["Dumbarton East","DBE"],["Dumfries","DFS"],["Dunbar","DUN"],["Dunblane","DBL"],
+["Dundee","DEE"],["Dunfermline Queen Margaret","DFQ"],["Dunfermline Town","DFT"],
+["Dunlop","DNL"],["Dyce","DYC"],["Eaglescliffe","EAG"],["Earlestown","ERL"],
+["Earlsfield","EAD"],["Earlswood (Surrey)","EAR"],["Earlswood (West Midlands)","EWD"],
+["East Croydon","ECR"],["East Didsbury","EDY"],["East Dulwich","EDW"],
+["East Farleigh","EFA"],["East Garforth","EGF"],["East Grinstead","EGR"],
+["East Kilbride","EKL"],["East Midlands Parkway","EMP"],["East Worthing","EWR"],
+["Eastbourne","EBN"],["Eastham Rake","EHR"],["Eastleigh","ESL"],
+["Ebbsfleet International","EBD"],["Ebbw Vale Parkway","EBV"],["Ebbw Vale Town","EBT"],
+["Eccles","ECL"],["Edenbridge","EBR"],["Edenbridge Town","EDT"],
+["Edinburgh Gateway","EGY"],["Edinburgh Park","EDP"],["Edinburgh Waverley","EDB"],
+["Effingham Junction","EFF"],["Egham","EGH"],["Elephant & Castle","EPH"],["Elgin","ELG"],
+["Ellesmere Port","ELP"],["Elmers End","ELE"],["Elmstead Woods","ESD"],["Ely","ELY"],
+["Emsworth","EMS"],["Enfield Chase","EFC"],["Enfield Lock","ENL"],["Enfield Town","ENF"],
+["Epsom","EPS"],["Epsom Downs","EPD"],["Erdington","ERD"],["Erith","ERH"],["Esher","ESH"],
+["Etchingham","ETC"],["Euxton Balshaw Lane","EBA"],["Evesham","EVE"],
+["Exeter Central","EXC"],["Exeter St Davids","EXD"],["Exmouth","EXM"],["Fairlie","FRL"],
+["Falkirk Grahamston","FKG"],["Falkirk High","FKK"],["Falmouth Docks","FAL"],
+["Falmouth Town","FMT"],["Fareham","FRM"],["Farnborough (Main)","FNB"],
+["Farnborough North","FNN"],["Farnham","FNH"],["Faversham","FAV"],["Fazakerley","FAZ"],
+["Felixstowe","FLX"],["Feltham","FEL"],["Feniton","FNT"],["Ferriby","FRY"],
+["Ferryside","FYS"],["Filey","FIL"],["Finchley Road & Frognal","FRO"],
+["Fishbourne","FSB"],["Fishguard & Goodwick","FGW"],["Five Ways","FWY"],["Fleet","FLE"],
+["Flint","FLN"],["Flitwick","FLT"],["Folkestone Central","FKC"],["Folkestone West","FKW"],
+["Ford","FOD"],["Forest Gate","FGT"],["Forest Hill","FHI"],["Formby","FBY"],
+["Fort William","FTW"],["Fratton","FTN"],["Freshfield","FRF"],["Frimley","FML"],
+["Frinton-on-Sea","FRI"],["Frome","FRO"],["Furze Platt","FZP"],
+["Gainsborough Central","GNB"],["Gainsborough Lea Road","GBL"],["Galashiels","GAL"],
+["Garforth","GRF"],["Garsdale","GSD"],["Garston","GST"],["Garve","GVE"],["Gathurst","GAT"],
+["Gatley","GTY"],["Gatwick Airport","GTW"],["Gidea Park","GID"],["Giggleswick","GIG"],
+["Gilberdyke","GBD"],["Gipsy Hill","GIP"],["Girvan","GIR"],["Glasgow Central","GLC"],
+["Glasgow Queen Street","GLQ"],["Glasshoughton","GLH"],["Glazebrook","GZB"],
+["Gleneagles","GLE"],["Glengarnock","GLG"],["Glossop","GLO"],["Gloucester","GCR"],
+["Gobowen","GOB"],["Godstone","GDS"],["Golspie","GOL"],["Gomshall","GOM"],
+["Goodmayes","GMY"],["Goostrey","GTR"],["Gordon Hill","GDH"],["Gorebridge","GBG"],
+["Goring & Streatley","GOR"],["Goring-by-Sea","GBS"],["Gourock","GRK"],["Gowerton","GWN"],
+["Grange Park","GPK"],["Grange-over-Sands","GOS"],["Grantham","GRA"],["Grateley","GRT"],
+["Gravesend","GRV"],["Grays","GRY"],["Great Ayton","GTA"],["Great Bentley","GRB"],
+["Great Coates","GCO"],["Great Missenden","GMN"],["Great Yarmouth","GYM"],
+["Greenfield","GNF"],["Greenford","GFD"],["Greenock Central","GKC"],
+["Greenock West","GKW"],["Grimsby Docks","GMD"],["Grimsby Town","GMT"],
+["Grindleford","GDF"],["Guide Bridge","GUI"],["Guildford","GUI"],["Guiseley","GSY"],
+["Gunnersbury","GUN"],["Hackbridge","HCB"],["Hackney Central","HKC"],
+["Hackney Downs","HAC"],["Hackney Wick","HKW"],["Haddenham & Thame Parkway","HDM"],
+["Hadfield","HDF"],["Hadley Wood","HDW"],["Hagley","HAG"],["Hale","HLE"],
+["Halesworth","HAS"],["Halewood","HED"],["Halifax","HFX"],["Hall Green","HLG"],
+["Halling","HAL"],["Haltwhistle","HLW"],["Ham Street","HMT"],["Hamilton Central","HNC"],
+["Hamilton West","HNW"],["Hampden Park","HMD"],["Hampstead Heath","HHH"],
+["Hampton","HMP"],["Hampton Court","HMC"],["Hampton Wick","HMW"],["Hamworthy","HAM"],
+["Hanborough","HNB"],["Hanwell","HNW"],["Hapton","HPN"],["Harlech","HRL"],
+["Harlesden","HDN"],["Harlington","HRL"],["Harlow Mill","HWM"],["Harlow Town","HLW"],
+["Harold Wood","HWO"],["Harpenden","HPD"],["Harringay","HGY"],
+["Harringay Green Lanes","HGN"],["Harrington","HRI"],["Harrogate","HGT"],
+["Harrow & Wealdstone","HRW"],["Hartlebury","HTY"],["Hartlepool","HPL"],
+["Harwich International","HPQ"],["Harwich Town","HWC"],["Haslemere","HSL"],
+["Hassocks","HSK"],["Hastings","HGS"],["Hatch End","HTE"],["Hatfield","HAT"],
+["Hatfield Peverel","HAP"],["Havant","HAV"],["Haverfordwest","HVF"],
+["Haydon Bridge","HDB"],["Haydons Road","HYR"],["Hayes & Harlington","HAY"],
+["Hayes (Kent)","HYS"],["Haymarket","HYM"],["Haywards Heath","HHE"],
+["Hazel Grove","HZG"],["Headcorn","HCN"],["Headingley","HDY"],["Headstone Lane","HDL"],
+["Heald Green","HGR"],["Hednesford","HNF"],["Helensburgh Central","HLC"],
+["Helensburgh Upper","HLU"],["Hellifield","HLD"],["Hemel Hempstead","HML"],
+["Hereford","HFD"],["Hertford East","HFE"],["Hertford North","HFN"],["Hessle","HES"],
+["Hever","HVR"],["Heworth","HEW"],["Hexham","HEX"],["High Brooms","HIB"],
+["High Wycombe","HWY"],["Highbridge & Burnham","HIG"],["Highbury & Islington","HHY"],
+["Hinchley Wood","HYW"],["Hinckley","HIN"],["Hindley","HIN"],["Hinton Admiral","HNA"],
+["Hitchin","HIT"],["Hither Green","HGM"],["Honeybourne","HON"],["Hook","HOK"],
+["Hope (Derbyshire)","HOP"],["Horley","HOR"],["Hornbeam Park","HBP"],["Hornsey","HRN"],
+["Horsforth","HRS"],["Horsham","HRH"],["Horwich Parkway","HWI"],["Hounslow","HOU"],
+["Hoveton & Wroxham","HXM"],["Hull","HUL"],["Huntingdon","HUN"],["Huyton","HUY"],
+["Ifield","IFI"],["Ilford","IFD"],["Ilkeston","ILN"],["Ilkley","ILK"],
+["Imperial Wharf","IMW"],["Ince & Elton","INE"],["Invergordon","IRG"],
+["Inverkeithing","INK"],["Inverness","INV"],["Inverurie","INR"],["Ipswich","IPS"],
+["Irvine","IRV"],["Jewellery Quarter","JEQ"],["Johnston","JOH"],["Johnstone","JHN"],
+["Keighley","KEI"],["Keith","KEI"],["Kempton Park","KMP"],["Kemsing","KMS"],
+["Kennett","KNE"],["Kensal Green","KNL"],["Kensal Rise","KNR"],
+["Kensington Olympia","KPA"],["Kentish Town","KTW"],["Kentish Town West","KTK"],
+["Kenton","KNT"],["Kents Bank","KSB"],["Kettering","KET"],["Kidbrooke","KDB"],
+["Kidderminster","KID"],["Kidsgrove","KDG"],["Kilmarnock","KMK"],["Kilwinning","KWN"],
+["Kingham","KGM"],["Kings Langley","KGL"],["Kings Norton","KNN"],["Kingsknowe","KGE"],
+["Kingston","KNG"],["Kingswood","KWD"],["Kirkby in Ashfield","KKB"],
+["Kirkby Stephen","KSW"],["Kirkham & Wesham","KKH"],["Knebworth","KNE"],
+["Knottingley","KNO"],["Ladywell","LAD"],["Laindon","LAI"],["Lancaster","LAN"],
+["Langho","LGO"],["Langwathby","LGW"],["Lapford","LAP"],["Lapworth","LPW"],
+["Laurencekirk","LAU"],["Lawrence Hill","LWH"],["Layton","LAY"],["Lea Bridge","LEB"],
+["Lea Green","LEG"],["Leagrave","LEA"],["Leasowe","LSW"],["Leatherhead","LHD"],
+["Ledbury","LEB"],["Leeds","LDS"],["Leicester","LEI"],["Leigh-on-Sea","LES"],
+["Leighton Buzzard","LBZ"],["Lelant","LEL"],["Lelant Saltings","LES"],
+["Letchworth Garden City","LET"],["Leuchars","LEU"],["Lewes","LWS"],["Lewisham","LEW"],
+["Leyland","LEY"],["Lichfield City","LIC"],["Lichfield Trent Valley","LTV"],
+["Lincoln","LCN"],["Lingfield","LFD"],["Liphook","LPH"],["Liskeard","LSK"],
+["Liverpool Central","LVC"],["Liverpool James Street","LVJ"],["Liverpool Lime Street","LIV"],
+["Liverpool Moorfields","LVM"],["Liverpool South Parkway","LPY"],
+["London Blackfriars","BFR"],["London Bridge","LBG"],["London Cannon Street","CST"],
+["London Charing Cross","CHX"],["London Euston","EUS"],["London Fenchurch Street","FST"],
+["London Kings Cross","KGX"],["London Liverpool Street","LST"],["London Marylebone","MYB"],
+["London Paddington","PAD"],["London St Pancras International","STP"],
+["London Victoria","VIC"],["London Waterloo","WAT"],["London Waterloo East","WAE"],
+["Long Eaton","LGE"],["Loughborough","LBO"],["Lowestoft","LWT"],["Ludlow","LUD"],
+["Luton","LUT"],["Luton Airport Parkway","LTN"],["Lydney","LYD"],["Lymington Pier","LYP"],
+["Lymington Town","LYT"],["Macclesfield","MAC"],["Machynlleth","MCH"],["Maghull","MAG"],
+["Mallaig","MLG"],["Malton","MAL"],["Manchester Airport","MIA"],
+["Manchester Oxford Road","MCO"],["Manchester Piccadilly","MAN"],
+["Manchester Victoria","MCV"],["Manningtree","MNG"],["Manor Park","MNP"],
+["Manors","MAS"],["Mansfield","MFT"],["Mansfield Woodhouse","MSW"],["March","MCH"],
+["Marden","MRD"],["Margate","MAR"],["Market Harborough","MHR"],["Market Rasen","MKR"],
+["Marks Tey","MKT"],["Marlow","MLW"],["Marple","MPL"],["Matlock","MAT"],
+["Matlock Bath","MTB"],["Meadowhall","MHS"],["Melksham","MKM"],["Melton Mowbray","MMO"],
+["Merthyr Tydfil","MER"],["Merthyr Vale","MEV"],["Mexborough","MEX"],
+["Micheldever","MIC"],["Milford Haven","MFH"],["Mill Hill Broadway","MIL"],
+["Millom","MLM"],["Milngavie","MLN"],["Milton Keynes Central","MKC"],["Mirfield","MIR"],
+["Mitcham Eastfields","MTC"],["Mitcham Junction","MIJ"],["Monks Risborough","MRS"],
+["Montrose","MTS"],["Morecambe","MCM"],["Moreton-in-Marsh","MIM"],["Morpeth","MPH"],
+["Motherwell","MTH"],["Mottingham","MTG"],["Moulsecoomb","MCB"],["Mytholmroyd","MYT"],
+["Nairn","NRN"],["Nantwich","NAN"],["Neath","NTH"],["Nelson","NEL"],["New Barnet","NBA"],
+["New Beckenham","NBC"],["New Brighton","NBN"],["New Cross Gate","NXG"],
+["New Eltham","NEL"],["New Malden","NEM"],["New Mills Central","NMC"],["New Milton","NWM"],
+["New Pudsey","NPD"],["New Southgate","NSG"],["Newark Castle","NCT"],
+["Newark North Gate","NNG"],["Newbury","NBY"],["Newbury Racecourse","NRC"],
+["Newcastle","NCL"],["Newcraighall","NEW"],["Newhaven Harbour","NVH"],
+["Newhaven Town","NVN"],["Newmarket","NMK"],["Newport (South Wales)","NWP"],
+["Newton Aycliffe","NAY"],["Newton-le-Willows","NLW"],["Northallerton","NAL"],
+["Northampton","NMP"],["Northfield","NFD"],["Northfleet","NFL"],["Northwich","NWI"],
+["Norwich","NRW"],["Norwood Junction","NWD"],["Nottingham","NOT"],["Nuneaton","NUN"],
+["Oakham","OKM"],["Oakleigh Park","OKL"],["Ockendon","OCK"],["Ormskirk","OMS"],
+["Orpington","ORP"],["Otford","OTF"],["Oulton Broad North","OBN"],
+["Oulton Broad South","OBS"],["Outwood","OUT"],["Oxenholme Lake District","OXN"],
+["Oxford","OXF"],["Oxford Parkway","OXP"],["Oxshott","OXS"],["Oxted","OXT"],
+["Paddock Wood","PDW"],["Paisley Canal","PCN"],["Paisley Gilmour Street","PGS"],
+["Palmers Green","PAL"],["Pangbourne","PAN"],["Parbold","PRB"],["Penarth","PEN"],
+["Pencoed","PCD"],["Penistone","PNS"],["Penkridge","PKG"],["Penzance","PNZ"],
+["Perth","PTH"],["Peterborough","PBO"],["Petersfield","PTR"],["Pewsey","PEW"],
+["Pitlochry","PIT"],["Plymouth","PLY"],["Polegate","PLG"],["Polmont","PMT"],
+["Pontypool & New Inn","PNP"],["Pontypridd","PPD"],["Port Glasgow","PTG"],
+["Port Talbot Parkway","PTA"],["Portsmouth & Southsea","PMS"],["Portsmouth Harbour","PMH"],
+["Potters Bar","PBR"],["Preston","PRE"],["Preston Park","PRP"],
+["Princes Risborough","PRI"],["Prittlewell","PRL"],["Purfleet","PFL"],["Purley","PUR"],
+["Purley Oaks","PUO"],["Pwllheli","PWL"],["Radlett","RDT"],["Radley","RAD"],
+["Rainford","RNF"],["Rainham (Essex)","RNM"],["Rainham (Kent)","RHM"],["Rainhill","RHL"],
+["Ramsgate","RAM"],["Ravenscourt Park","RVP"],["Ravensbourne","RVB"],
+["Ravensthorpe","RAV"],["Raynes Park","RAY"],["Reading","RDG"],["Reading West","RDW"],
+["Rectory Road","REC"],["Redcar Central","RCC"],["Redcar East","RCE"],
+["Reddish North","RDN"],["Reddish South","RDS"],["Redhill","RDH"],["Redruth","RED"],
+["Reigate","REI"],["Retford","RET"],["Rhyl","RHL"],["Rhymney","RHY"],["Richmond","RMD"],
+["Rickmansworth","RKW"],["Robertsbridge","RBR"],["Rochdale","RCD"],["Rochester","RCS"],
+["Rock Ferry","RKF"],["Romford","RMF"],["Romiley","ROM"],["Romsey","ROM"],
+["Rotherham Central","RMC"],["Rowley Regis","ROW"],["Roydon","RYN"],["Royston","ROY"],
+["Rugeley Town","RGL"],["Rugeley Trent Valley","RGV"],["Runcorn","RUN"],
+["Runcorn East","RUE"],["Ryde Esplanade","RYD"],["Ryde Pier Head","RYP"],
+["Ryde St Johns Road","RYR"],["Rye","RYE"],["Sale","SLE"],["Salford Central","SFD"],
+["Salford Crescent","SLD"],["Salisbury","SAL"],["Saltaire","SAI"],["Saltash","STA"],
+["Saltburn","SLB"],["Saltcoats","SLT"],["Sanderstead","SRS"],["Sandhurst","SND"],
+["Sandling","SDG"],["Sandown","SAN"],["Sandwell & Dudley","SAD"],["Scarborough","SCA"],
+["Scunthorpe","SCU"],["Seaford","SEF"],["Seaton Carew","SEC"],["Selby","SBY"],
+["Sevenoaks","SEV"],["Sheffield","SHF"],["Shenfield","SNF"],["Shenstone","SEN"],
+["Shepreth","SHP"],["Sherborne","SHB"],["Sheringham","SHM"],["Shoeburyness","SHO"],
+["Shortlands","SRT"],["Shotton","SHT"],["Shrewsbury","SHR"],["Sidcup","SID"],
+["Singer","SIN"],["Sittingbourne","SIT"],["Skipton","SKI"],["Slade Green","SGR"],
+["Sleaford","SLR"],["Slough","SLO"],["Solihull","SOL"],["South Bermondsey","SBM"],
+["South Croydon","SCY"],["South Gyle","SGL"],["South Kenton","SKN"],["South Merton","SMN"],
+["South Milford","SOM"],["South Ruislip","SRU"],["Southampton Airport Parkway","SOA"],
+["Southampton Central","SOU"],["Southend Airport","SIA"],["Southend Central","SOC"],
+["Southend East","SOE"],["Southend Victoria","SOV"],["Southport","SOP"],
+["Sowerby Bridge","SOW"],["Spalding","SPA"],["St Albans City","SAC"],["St Austell","SAU"],
+["St Denys","SDN"],["St Erth","SER"],["St Helens Central","SHC"],
+["St Helens Junction","SHJ"],["St Ives","SIV"],["St Leonards Warrior Square","SLQ"],
+["Stafford","STA"],["Staines","SNS"],["Stamford","SMD"],["Stansted Airport","SSD"],
+["Stevenage","SVG"],["Stirling","STG"],["Stockport","SPT"],["Stoke-on-Trent","SOT"],
+["Stone Crossing","SCG"],["Stonegate","SOG"],["Stourbridge Junction","SBJ"],
+["Stourbridge Town","SBT"],["Stowmarket","SMK"],["Stranraer","STR"],["Stratford","SRA"],
+["Stratford-upon-Avon","SAV"],["Stroud","STD"],["Sturry","STU"],["Sudbury (Suffolk)","SUY"],
+["Sunderland","SUN"],["Surbiton","SUR"],["Sutton (Surrey)","SUO"],
+["Sutton Coldfield","SUT"],["Swanley","SAY"],["Swansea","SWA"],["Swindon","SWI"],
+["Sydenham","SYD"],["Syon Lane","SYL"],["Tame Bridge Parkway","TAB"],["Tamworth","TAM"],
+["Tattenham Corner","TAT"],["Taunton","TAU"],["Teddington","TED"],["Telford Central","TFC"],
+["Templecombe","TMC"],["Tenby","TEN"],["Thatcham","THA"],["Thornaby","TBY"],
+["Thornton Heath","TTH"],["Three Bridges","TBD"],["Thurso","THS"],["Tilbury Town","TIL"],
+["Tiverton Parkway","TVP"],["Todmorden","TOD"],["Tonbridge","TON"],["Topsham","TOP"],
+["Torquay","TQY"],["Totnes","TOT"],["Tottenham Hale","TOM"],["Totton","TTN"],
+["Trefforest","TRF"],["Treherbert","TRH"],["Tring","TRI"],["Troon","TRN"],["Truro","TRU"],
+["Tulse Hill","TUH"],["Tunbridge Wells","TBW"],["Uddingston","UDD"],["University","UNI"],
+["Uphall","UPH"],["Upminster","UPM"],["Upper Warlingham","UWL"],["Upton","UPT"],
+["Urmston","URM"],["Virginia Water","VIR"],["Wakefield Kirkgate","WKK"],
+["Wakefield Westgate","WKF"],["Walkden","WKN"],["Wallasey Grove Road","WAG"],
+["Wallasey Village","WAV"],["Wallington","WLT"],["Walsall","WSA"],["Waltham Cross","WLC"],
+["Walthamstow Central","WHC"],["Walton-on-Thames","WAL"],["Walton-on-the-Naze","WON"],
+["Wareham","WRM"],["Warrington Bank Quay","WBQ"],["Warrington Central","WAC"],
+["Warwick","WRW"],["Warwick Parkway","WRP"],["Watford Junction","WFJ"],
+["Watford North","WFN"],["Wellingborough","WBO"],["Welwyn Garden City","WGC"],
+["Welwyn North","WLW"],["Wembley Central","WMB"],["West Allerton","WSA"],
+["West Byfleet","WBY"],["West Calder","WCA"],["West Croydon","WCY"],
+["West Drayton","WDT"],["West Dulwich","WDL"],["West Ham","WEH"],
+["West Hampstead","WHD"],["West Hampstead Thameslink","WHP"],["West Horndon","WHN"],
+["West Kilbride","WKB"],["West Malling","WMA"],["West Norwood","WNW"],
+["West Ruislip","WRU"],["West Runton","WRN"],["West Sutton","WSU"],
+["Westerfield","WTF"],["Weston-super-Mare","WSM"],["Weybridge","WYB"],["Weymouth","WEY"],
+["Whaley Bridge","WBR"],["Whitchurch (Hants)","WCH"],["White Hart Lane","WHL"],
+["Whitland","WHL"],["Whitley Bay","WTY"],["Whitstable","WHS"],["Wickford","WIC"],
+["Wigan North Western","WGN"],["Wigan Wallgate","WWG"],["Wimbledon","WIM"],
+["Wimbledon Chase","WCH"],["Winchester","WIN"],["Windsor & Eton Central","WNC"],
+["Windsor & Eton Riverside","WNR"],["Winnersh","WNS"],["Winnersh Triangle","WTI"],
+["Witham","WTM"],["Woking","WOK"],["Wokingham","WKM"],["Wolverhampton","WVH"],
+["Wolverton","WOL"],["Wood Green","WOG"],["Woodbridge","WDB"],["Woodlesford","WDS"],
+["Wool","WOL"],["Woolwich Arsenal","WWA"],["Worcester Foregate Street","WFF"],
+["Worcester Park","WOP"],["Worcester Shrub Hill","WOS"],["Worksop","WRK"],
+["Worthing","WRH"],["Wrexham Central","WXC"],["Wrexham General","WRX"],["Yarm","YRM"],
+["Yate","YAE"],["Yatton","YAT"],["Yeovil Junction","YVJ"],["Yeovil Pen Mill","YVP"],
+["York","YRK"]
+];
+
+const STATIONS = RAW_STATIONS.map(([name,code]) => ({name, code}));
+
+// CITY_GROUPS — "All terminals" entries injected at top of AC when user types a city name
+const CITY_GROUPS = {
+  'London': {code:'LON', stations:[
+    'London Paddington','London Euston','London Kings Cross','London Waterloo',
+    'London Victoria','London Liverpool Street','London St Pancras',
+    'London Charing Cross','London Cannon Street','London Blackfriars',
+    'London Bridge','London Marylebone','London Fenchurch Street','London Waterloo East',
+  ]},
+  'Manchester': {code:'MAN', stations:[
+    'Manchester Piccadilly','Manchester Victoria','Manchester Oxford Road','Manchester Airport',
+  ]},
+  'Birmingham': {code:'BHM', stations:[
+    'Birmingham New Street','Birmingham Snow Hill','Birmingham Moor Street','Birmingham International',
+  ]},
+  'Glasgow': {code:'GLC', stations:['Glasgow Central','Glasgow Queen Street']},
+  'Edinburgh': {code:'EDB', stations:['Edinburgh Waverley','Edinburgh Gateway','Edinburgh Park']},
+  'Bristol': {code:'BRI', stations:['Bristol Temple Meads','Bristol Parkway']},
+  'Liverpool': {code:'LIV', stations:[
+    'Liverpool Lime Street','Liverpool Central','Liverpool James Street',
+    'Liverpool Moorfields','Liverpool South Parkway',
+  ]},
+  'Cardiff': {code:'CDF', stations:['Cardiff Central','Cardiff Queen Street','Cardiff Bay']},
+};
+
+// Build AC results including city "All terminals" option at top
+function buildACResults(q) {
+  if (!q || q.length < 1) return [];
+  const ql = q.toLowerCase().trim();
+  const items = [];
+
+  // Check if query matches a city name — inject "All terminals" first
+  for (const [city, data] of Object.entries(CITY_GROUPS)) {
+    if (city.toLowerCase().startsWith(ql) || ql.startsWith(city.toLowerCase().slice(0,3))) {
+      if (data.stations.length > 1) {
+        items.push({ name: `${city} (All terminals)`, code: data.code, allTerminals: true, city });
+      }
+    }
+  }
+
+  // Regular station search
+  const stationResults = searchStations(q);
+  stationResults.forEach(s => items.push({ name: s.name, code: s.code, allTerminals: false }));
+
+  return items.slice(0, 10);
+}
+
+function setupAC(inId, acId) {
+  const inp = document.getElementById(inId), ac = document.getElementById(acId);
+  let hi = -1;
+
+  function renderAC(q) {
+    const results = buildACResults(q);
+    if (!results.length) { ac.classList.remove('open'); return; }
+    ac.innerHTML = results.map((r, idx) =>
+      `<div class="ac-it${r.allTerminals ? ' all-term' : ''}" data-name="${r.name}" data-idx="${idx}">
+        <span class="ac-crs">${r.allTerminals ? '⊕' : r.code}</span>
+        <span class="ac-nm">${hl(r.name, q)}</span>
+      </div>`
+    ).join('');
+    ac.classList.add('open');
+  }
+
+  inp.addEventListener('input', () => {
+    const q = inp.value.trim(); hi = -1;
+    if (!q) { ac.classList.remove('open'); return; }
+    renderAC(q);
+  });
+  ac.addEventListener('mousedown', e => {
+    const it = e.target.closest('.ac-it'); if (!it) return;
+    e.preventDefault(); inp.value = it.dataset.name; ac.classList.remove('open'); inp.blur();
+  });
+  inp.addEventListener('keydown', e => {
+    const its = ac.querySelectorAll('.ac-it'); if (!its.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); hi = Math.min(hi+1, its.length-1); its.forEach((el,i) => el.classList.toggle('hi', i===hi)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); hi = Math.max(hi-1, -1); its.forEach((el,i) => el.classList.toggle('hi', i===hi)); }
+    else if (e.key === 'Enter' && hi >= 0) { e.preventDefault(); inp.value = its[hi].dataset.name; ac.classList.remove('open'); }
+    else if (e.key === 'Escape') ac.classList.remove('open');
+  });
+  inp.addEventListener('focus', () => {
+    if (inp.value.trim()) renderAC(inp.value.trim());
+  });
+  inp.addEventListener('blur', () => setTimeout(() => ac.classList.remove('open'), 200));
+}
+setupAC('fromInput','fromAC');
+setupAC('toInput','toAC');
+const CODE_MAP = {};
+STATIONS.forEach(s => { CODE_MAP[s.name.toLowerCase()] = s.code; });
+function getCode(n) {
+  // Handle "City (All terminals)" selections
+  const allMatch = n.match(/^(.+?) \(All terminals\)$/);
+  if (allMatch) {
+    const city = allMatch[1];
+    const grp = CITY_GROUPS[city];
+    return grp ? grp.code : city.toUpperCase().slice(0,3);
+  }
+  return CODE_MAP[n.toLowerCase().trim()] || n.trim().toUpperCase().slice(0,3);
+}
+
+// ── IMPROVED SEARCH: substring anywhere in full name, not just word-prefix ──
+function searchStations(q) {
+  if (!q || q.length < 1) return [];
+  const ql = q.toLowerCase().trim();
+  const results = STATIONS.filter(s =>
+    s.name.toLowerCase().includes(ql) || s.code.toLowerCase() === ql
+  );
+  // Score: full-name starts with query = 0, any word starts with = 1, contains = 2, code = 3
+  results.sort((a, b) => {
+    const al = a.name.toLowerCase(), bl = b.name.toLowerCase();
+    const sc = n => n.startsWith(ql) ? 0 : n.split(/[\s&'()\-]+/).some(w => w.startsWith(ql)) ? 1 : 2;
+    return sc(al) - sc(bl) || al.localeCompare(bl);
+  });
+  return results.slice(0, 9);
+}
+
+function hl(str, q) {
+  const i = str.toLowerCase().indexOf(q.toLowerCase());
+  if (i === -1) return str;
+  return str.slice(0,i) + '<mark>' + str.slice(i, i+q.length) + '</mark>' + str.slice(i+q.length);
+}
+
+// ════════════════════════════════════════
+// STORAGE
+// ════════════════════════════════════════
+function ld(k,d) { try { const v=localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }
+function sv(k,v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+
+let searchCounts = ld('sc2', {});
+// favourites: [{label, from, to, fc, tc, dep, operator, serviceId}]
+let favourites   = ld('favs2', []);
+
+const PINNED = [
+  {from:'Leeds', to:'Thornaby', fc:'LDS', tc:'TBY'},
+  {from:'Thornaby', to:'Leeds', fc:'TBY', tc:'LDS'},
+];
+
+function recordSearch(from, to, fc, tc) {
+  const k = `${fc}__${tc}`;
+  searchCounts[k] = (searchCounts[k]||0) + 1;
+  searchCounts[k+'_n'] = `${from}|||${to}`;
+  sv('sc2', searchCounts);
+  renderPopular();
+}
+
+function renderPopular() {
+  const list = document.getElementById('popularList');
+  const pk = PINNED.map(p => `${p.fc}__${p.tc}`);
+  const dyn = Object.entries(searchCounts)
+    .filter(([k]) => !k.endsWith('_n') && !pk.includes(k))
+    .sort((a,b) => b[1]-a[1]).slice(0,8)
+    .map(([k]) => {
+      const nm = searchCounts[k+'_n']||'';
+      const [from='',to=''] = nm.split('|||');
+      const [fc,tc] = k.split('__');
+      return {from, to, fc, tc};
+    }).filter(r => r.from && r.to);
+  const all = [...PINNED, ...dyn];
+  list.innerHTML = all.map(r =>
+    `<div class="pop-chip" data-from="${r.from}" data-to="${r.to}">
+      <div class="pop-r">${r.fc}<span class="pop-a">→</span>${r.tc}</div>
+      <div class="pop-l">${r.from.split(' ')[0]}→${r.to.split(' ')[0]}</div>
+    </div>`).join('');
+}
+
+function renderFavStrip() {
+  const strip = document.getElementById('favStrip');
+  const sec   = document.getElementById('favSection');
+  if (!favourites.length) { sec.style.display='none'; return; }
+  sec.style.display = 'block';
+  strip.innerHTML = favourites.map((f,i) =>
+    `<div class="fav-chip" data-i="${i}">
+      <span class="fav-star-sm">★</span>
+      <div><div class="fav-nm">${f.label}</div><div class="fav-sub">${f.fc}→${f.tc}</div></div>
+    </div>`).join('');
+}
+
+function renderFavPanel() {
+  const body = document.getElementById('pnBody');
+  document.getElementById('pnSub').textContent = `${favourites.length}/5 saved trains`;
+  if (!favourites.length) {
+    body.innerHTML = '<div class="pn-empty">No favourites yet.<br>Tap ☆ on any departure to save that specific train.</div>';
+    return;
+  }
+  body.innerHTML = favourites.map((f,i) =>
+    `<div class="fav-row" data-i="${i}">
+      <span class="fav-row-star">★</span>
+      <div class="fav-row-info">
+        <div class="fav-row-nm">${f.label}</div>
+        <div class="fav-row-sub">${f.from} → ${f.to} · ${f.operator||''}</div>
+      </div>
+      <span class="fav-row-del" data-del="${i}">✕</span>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════
+// DATE / TIME CONTROLS
+// ════════════════════════════════════════
+let timeMode = 'now'; // 'now' | 'time' | 'date'
+
+// Set today as default date value
+const todayStr = new Date().toISOString().slice(0,10);
+document.getElementById('dateInput').value = todayStr;
+
+document.getElementById('dtControls').addEventListener('click', e => {
+  const tab = e.target.closest('.dt-tab'); if (!tab) return;
+  document.querySelectorAll('.dt-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  timeMode = tab.dataset.mode;
+  const row2 = document.getElementById('dtRow2');
+  const dateField = document.getElementById('dtDateField');
+  row2.classList.toggle('show', timeMode === 'time' || timeMode === 'date');
+  dateField.style.display = timeMode === 'date' ? 'flex' : 'none';
+  if ((timeMode === 'time' || timeMode === 'date') && !document.getElementById('timeInput').value) {
+    const n = new Date();
+    document.getElementById('timeInput').value = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+  }
+});
+
+// ════════════════════════════════════════
+// SWAP
+// ════════════════════════════════════════
+document.getElementById('swapBtn').addEventListener('click', () => {
+  const f = document.getElementById('fromInput'), t = document.getElementById('toInput');
+  [f.value, t.value] = [t.value, f.value];
+});
+
+// ════════════════════════════════════════
+// SEARCH
+// ════════════════════════════════════════
+document.getElementById('goBtn').addEventListener('click', () => doSearch());
+['fromInput','toInput'].forEach(id =>
+  document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') doSearch(); })
+);
+
+let curFrom='', curTo='', curFc='', curTc='';
+let curBaseOffset = 0; // minutes from now to the "anchor" time for this search
+let loadedSvcs = [];
+
+function doSearch() {
+  const from = document.getElementById('fromInput').value.trim();
+  const to   = document.getElementById('toInput').value.trim();
+  if (!from || !to) {
+    const el = document.getElementById(!from ? 'fromInput' : 'toInput');
+    el.style.color='var(--red)'; setTimeout(()=>el.style.color='',600); return;
+  }
+  document.getElementById('fromAC').classList.remove('open');
+  document.getElementById('toAC').classList.remove('open');
+  curFrom=from; curTo=to; curFc=getCode(from); curTc=getCode(to);
+  loadedSvcs = [];
+
+  // Compute base offset from now
+  const now = new Date();
+  if (timeMode === 'now') {
+    curBaseOffset = -5; // Start 5 mins ago to catch trains that just departed
+  } else if (timeMode === 'time') {
+    const tv = document.getElementById('timeInput').value;
+    if (tv) {
+      const [h,m] = tv.split(':').map(Number);
+      const t = new Date(); t.setHours(h,m,0,0);
+      curBaseOffset = Math.round((t - now) / 60000);
+    }
+  } else if (timeMode === 'date') {
+    const dv = document.getElementById('dateInput').value;
+    const tv = document.getElementById('timeInput').value || '00:00';
+    if (dv) {
+      const [h,m] = tv.split(':').map(Number);
+      const t = new Date(dv); t.setHours(h,m,0,0);
+      curBaseOffset = Math.round((t - now) / 60000);
+    }
+  }
+
+  recordSearch(from, to, curFc, curTc);
+  fetchTrains(curBaseOffset, 'replace');
+}
+
+// ════════════════════════════════════════
+// FETCH HELPER — plain XMLHttpRequest, works when hosted on GitHub Pages
+// ════════════════════════════════════════
+function xhrGet(url, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.timeout = timeoutMs;
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText)); }
+        catch(e) { reject(new Error('Invalid JSON response from API')); }
+      } else {
+        reject(new Error(`API error ${xhr.status}: ${xhr.responseText.slice(0, 300)}`));
+      }
+    };
+    xhr.onerror   = () => reject(new Error('Network error — could not reach the API.'));
+    xhr.ontimeout = () => reject(new Error('Request timed out after 15s'));
+    xhr.send();
+  });
+}
+
+// ════════════════════════════════════════
+// FETCH
+// ════════════════════════════════════════
+
+// Convert HH:MM string to minutes since midnight
+function toMins(std) {
+  if (!std) return -1;
+  const [h,m] = std.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// Minutes since midnight "now"
+function nowMins() {
+  const n = new Date();
+  return n.getHours() * 60 + n.getMinutes();
+}
+
+// Convert minutes-since-midnight to a timeOffset (minutes from now), handling midnight rollover
+function minsToOffset(targetMins) {
+  let diff = targetMins - nowMins();
+  // If negative, the target is the next day
+  if (diff < -60) diff += 1440;
+  return diff;
+}
+
+let lastShownStd = null;
+
+async function fetchTrains(offset, mode) {
+  const empty   = document.getElementById('emptyState');
+  const loading = document.getElementById('loadingState');
+  const lbl     = document.getElementById('loadingLbl');
+  const list    = document.getElementById('resultsList');
+
+  empty.style.display = 'none';
+
+  if (mode === 'replace') {
+    loading.classList.add('show'); list.innerHTML = ''; loadedSvcs = []; lastShownStd = null;
+    lbl.textContent = 'Fetching live trains…';
+  } else {
+    lbl.textContent = mode === 'later' ? 'Loading later trains…' : 'Loading earlier trains…';
+    loading.classList.add('show');
+    const btn = document.getElementById(mode === 'later' ? 'btnLater' : 'btnEarlier');
+    if (btn) { btn.classList.add('busy'); btn.textContent = 'Loading…'; }
+  }
+
+  // Safe wrapper — if a fetch fails, returns [] instead of crashing everything
+  async function safeFetch(fn) {
+    try { return await fn(); } catch(e) { console.warn('fetch failed:', e.message); return []; }
+  }
+
+  // Fetch with destination filter (fast, catches most trains)
+  async function fetchWindow(off) {
+    const clamped = Math.max(-120, Math.min(119, off));
+    const url = apiUrl(`/departures/${curFc}/to/${curTc}/20`, {
+      expand: 'true',
+      timeOffset: clamped,
+      timeWindow: 120
+    });
+    const raw = await xhrGet(url);
+    return raw.trainServices || [];
+  }
+
+  // Fetch all departures, filter client-side for those calling at destination
+  // Catches trains like Northern Manchester→Leeds via Bradford (different route)
+  async function fetchBroad(off) {
+    const clamped = Math.max(-120, Math.min(119, off));
+    const url = apiUrl(`/departures/${curFc}/30`, {
+      expand: 'true',
+      timeOffset: clamped,
+      timeWindow: 120
+    });
+    const raw = await xhrGet(url);
+    const all = raw.trainServices || [];
+    return all.filter(s => {
+      // Include if destination matches OR any calling point matches
+      const dest = (s.destination || []).concat(s.currentDestinations || []);
+      if (dest.some(d => d.crs && d.crs.toUpperCase() === curTc.toUpperCase())) return true;
+      const cps = getCallingPoints(s);
+      return cps.some(cp => cp.crs && cp.crs.toUpperCase() === curTc.toUpperCase());
+    });
+  }
+
+  const INITIAL_BATCH = 7;
+  const PAGE_BATCH = 3;
+  const BATCH = mode === 'replace' ? INITIAL_BATCH : PAGE_BATCH;
+
+  // Fetch enough windows to get BATCH trains — up to 4 windows (8 hours)
+  async function fetchEnough(startOffset, neededCount) {
+    const allResults = [];
+    const seen = new Set();
+    for (let window = 0; window < 4 && allResults.length < neededCount * 2; window++) {
+      const off = startOffset + window * 120;
+      const [w, b] = await Promise.all([
+        safeFetch(() => fetchWindow(off)),
+        safeFetch(() => fetchBroad(off)),
+      ]);
+      for (const s of [...w, ...b]) {
+        const key = s.serviceID || (s.std + '_' + (s.operator||''));
+        if (!seen.has(key)) { seen.add(key); allResults.push(s); }
+      }
+      // Stop early if we have more than enough
+      if (allResults.length >= neededCount * 2) break;
+    }
+    return allResults;
+  }
+
+  try {
+    const raw = await fetchEnough(offset, BATCH);
+    loading.classList.remove('show');
+
+    // Sort by departure time relative to offset
+    const base = ((nowMins() + offset) % 1440 + 1440) % 1440;
+    raw.sort((a, b) => {
+      const da = (toMins(a.std) - base + 1440) % 1440;
+      const db = (toMins(b.std) - base + 1440) % 1440;
+      return da - db;
+    });
+
+    // Filter to strictly after/before boundary for paging, then slice to exact count
+    let svcs;
+    if (mode === 'later' && lastShownStd !== null) {
+      const lastM = toMins(lastShownStd);
+      svcs = raw.filter(s => {
+        const diff = (toMins(s.std) - lastM + 1440) % 1440;
+        return diff > 0 && diff < 720;
+      }).slice(0, BATCH);
+    } else if (mode === 'earlier') {
+      const firstShown = loadedSvcs[0]?.std;
+      if (firstShown) {
+        const firstM = toMins(firstShown);
+        svcs = raw.filter(s => {
+          const diff = (firstM - toMins(s.std) + 1440) % 1440;
+          return diff > 0 && diff < 720;
+        }).slice(-BATCH);
+      } else {
+        svcs = raw.slice(0, BATCH);
+      }
+    } else {
+      svcs = raw.slice(0, BATCH);
+    }
+
+    ['btnEarlier','btnLater'].forEach(id => { const b=document.getElementById(id); if(b)b.remove(); });
+
+    if (mode === 'replace' && !svcs.length) {
+      list.innerHTML = `<div class="err-box"><strong>No trains found</strong>No services from <em>${curFrom}</em> to <em>${curTo}</em> around this time.</div>`;
+      return;
+    }
+
+    if (mode === 'replace') {
+      const hdr = document.createElement('div'); hdr.className='res-hdr';
+      hdr.innerHTML = `<div class="res-rt">${curFrom.split(' ')[0]} → ${curTo.split(' ')[0]}</div><div class="res-ct" id="resCt">${svcs.length} trains</div>`;
+      list.appendChild(hdr);
+    }
+
+    if (mode === 'later') {
+      svcs.forEach((s,i) => { loadedSvcs.push(s); const c=makeCard(s); c.style.animationDelay=`${i*0.04}s`; list.appendChild(c); });
+    } else if (mode === 'earlier') {
+      const hdr = list.querySelector('.res-hdr');
+      svcs.slice().reverse().forEach((s,i) => {
+        loadedSvcs.unshift(s);
+        const c = makeCard(s); c.style.animationDelay = `${i*0.04}s`;
+        if (hdr) hdr.after(c); else list.prepend(c);
+      });
+    } else {
+      svcs.forEach((s,i) => { loadedSvcs.push(s); const c=makeCard(s); c.style.animationDelay=`${i*0.04}s`; list.appendChild(c); });
+    }
+
+    // Update lastShownStd from the last rendered card
+    const allCards = list.querySelectorAll('.train-card');
+    if (allCards.length > 0) lastShownStd = allCards[allCards.length-1].dataset.std || null;
+    const firstShownStd = allCards.length > 0 ? allCards[0].dataset.std : null;
+
+    // ── EARLIER button ──
+    if (firstShownStd) {
+      const capturedFirst = firstShownStd;
+      const btnE = document.createElement('button');
+      btnE.className = 'page-btn'; btnE.id = 'btnEarlier';
+      btnE.innerHTML = '↑ Earlier trains';
+      btnE.addEventListener('click', () => {
+        // Go back 4 hours from the first shown departure
+        const targetMins = (toMins(capturedFirst) - 240 + 1440) % 1440;
+        fetchTrains(minsToOffset(targetMins), 'earlier');
+      });
+      const hdr2 = list.querySelector('.res-hdr');
+      if (hdr2) hdr2.before(btnE); else list.prepend(btnE);
+    }
+
+    // ── LATER button ──
+    if (lastShownStd) {
+      const capturedLast = lastShownStd;
+      const btnL = document.createElement('button');
+      btnL.className = 'page-btn'; btnL.id = 'btnLater';
+      btnL.innerHTML = '↓ Later trains';
+      btnL.addEventListener('click', () => {
+        // Start searching 1 minute after the last shown train
+        const targetMins = (toMins(capturedLast) + 1 + 1440) % 1440;
+        fetchTrains(minsToOffset(targetMins), 'later');
+      });
+      list.appendChild(btnL);
+    }
+
+  } catch(err) {
+    loading.classList.remove('show');
+    list.innerHTML = `<div class="err-box"><strong>Could not load trains</strong>${err.message}</div>`;
+  }
+}
+
+// ════════════════════════════════════════
+// OPERATOR BRANDING
+// ════════════════════════════════════════
+// Inline SVG operator logos — no external requests, always available, accurate brand colours
+const OPERATOR_LOGOS_SVG = {
+  'TP': `<svg viewBox="0 0 120 32" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="32" rx="4" fill="#0071BB"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">TransPennine</text></svg>`,
+  'NT': `<svg viewBox="0 0 90 32" xmlns="http://www.w3.org/2000/svg"><rect width="90" height="32" rx="4" fill="#2C2864"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">Northern</text></svg>`,
+  'GW': `<svg viewBox="0 0 60 32" xmlns="http://www.w3.org/2000/svg"><rect width="60" height="32" rx="4" fill="#0A493E"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#FFD700">GWR</text></svg>`,
+  'VT': `<svg viewBox="0 0 70 32" xmlns="http://www.w3.org/2000/svg"><rect width="70" height="32" rx="4" fill="#1D1D1B"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="#FFCC00">Avanti</text></svg>`,
+  'LN': `<svg viewBox="0 0 62 32" xmlns="http://www.w3.org/2000/svg"><rect width="62" height="32" rx="4" fill="#E21836"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">LNER</text></svg>`,
+  'GR': `<svg viewBox="0 0 62 32" xmlns="http://www.w3.org/2000/svg"><rect width="62" height="32" rx="4" fill="#E21836"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">LNER</text></svg>`,
+  'XC': `<svg viewBox="0 0 110 32" xmlns="http://www.w3.org/2000/svg"><rect width="110" height="32" rx="4" fill="#660033"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">CrossCountry</text></svg>`,
+  'EM': `<svg viewBox="0 0 55 32" xmlns="http://www.w3.org/2000/svg"><rect width="55" height="32" rx="4" fill="#452461"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">EMR</text></svg>`,
+  'GC': `<svg viewBox="0 0 110 32" xmlns="http://www.w3.org/2000/svg"><rect width="110" height="32" rx="4" fill="#231F20"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#F4A60B">Grand Central</text></svg>`,
+  'HT': `<svg viewBox="0 0 90 32" xmlns="http://www.w3.org/2000/svg"><rect width="90" height="32" rx="4" fill="#FF6600"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">Hull Trains</text></svg>`,
+  'LD': `<svg viewBox="0 0 58 32" xmlns="http://www.w3.org/2000/svg"><rect width="58" height="32" rx="4" fill="#003E96"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">Lumo</text></svg>`,
+  'HX': `<svg viewBox="0 0 80 32" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="32" rx="4" fill="#7B2082"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Heathrow Ex</text></svg>`,
+  'GN': `<svg viewBox="0 0 80 32" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="32" rx="4" fill="#00A0E2"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Gt Northern</text></svg>`,
+  'TL': `<svg viewBox="0 0 90 32" xmlns="http://www.w3.org/2000/svg"><rect width="90" height="32" rx="4" fill="#00A0E2"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="white">Thameslink</text></svg>`,
+  'SN': `<svg viewBox="0 0 78 32" xmlns="http://www.w3.org/2000/svg"><rect width="78" height="32" rx="4" fill="#007943"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">Southern</text></svg>`,
+  'SE': `<svg viewBox="0 0 96 32" xmlns="http://www.w3.org/2000/svg"><rect width="96" height="32" rx="4" fill="#00AFEF"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Southeastern</text></svg>`,
+  'SW': `<svg viewBox="0 0 46 32" xmlns="http://www.w3.org/2000/svg"><rect width="46" height="32" rx="4" fill="#E4222B"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">SWR</text></svg>`,
+  'GA': `<svg viewBox="0 0 100 32" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="32" rx="4" fill="#D70428"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Greater Anglia</text></svg>`,
+  'LE': `<svg viewBox="0 0 100 32" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="32" rx="4" fill="#D70428"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Greater Anglia</text></svg>`,
+  'CC': `<svg viewBox="0 0 40 32" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="32" rx="4" fill="#B2175B"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">c2c</text></svg>`,
+  'LO': `<svg viewBox="0 0 96 32" xmlns="http://www.w3.org/2000/svg"><rect width="96" height="32" rx="4" fill="#E05206"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Overground</text></svg>`,
+  'LM': `<svg viewBox="0 0 90 32" xmlns="http://www.w3.org/2000/svg"><rect width="90" height="32" rx="4" fill="#3D5DA7"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">West Midlands</text></svg>`,
+  'WM': `<svg viewBox="0 0 90 32" xmlns="http://www.w3.org/2000/svg"><rect width="90" height="32" rx="4" fill="#3D5DA7"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">West Midlands</text></svg>`,
+  'CH': `<svg viewBox="0 0 72 32" xmlns="http://www.w3.org/2000/svg"><rect width="72" height="32" rx="4" fill="#00A0DC"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="white">Chiltern</text></svg>`,
+  'ME': `<svg viewBox="0 0 80 32" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="32" rx="4" fill="#F4B11B"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#231F20">Merseyrail</text></svg>`,
+  'SR': `<svg viewBox="0 0 70 32" xmlns="http://www.w3.org/2000/svg"><rect width="70" height="32" rx="4" fill="#0052A5"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">ScotRail</text></svg>`,
+  'XR': `<svg viewBox="0 0 88 32" xmlns="http://www.w3.org/2000/svg"><rect width="88" height="32" rx="4" fill="#7156A5"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Elizabeth ⬤</text></svg>`,
+  'TW': `<svg viewBox="0 0 42 32" xmlns="http://www.w3.org/2000/svg"><rect width="42" height="32" rx="4" fill="#E4002B"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">TfW</text></svg>`,
+  'AW': `<svg viewBox="0 0 42 32" xmlns="http://www.w3.org/2000/svg"><rect width="42" height="32" rx="4" fill="#E4002B"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">TfW</text></svg>`,
+  'CS': `<svg viewBox="0 0 60 32" xmlns="http://www.w3.org/2000/svg"><rect width="60" height="32" rx="4" fill="#00A6C8"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">Cal. Sl.</text></svg>`,
+};
+
+// ════════════════════════════════════════
+// SINGLE CONSISTENT TRAIN ICON — used everywhere
+// ════════════════════════════════════════
+const TRAIN_ICON = `<svg width="22" height="22" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;">
+  <rect x="3" y="6" width="22" height="14" rx="4" fill="var(--ink)"/>
+  <rect x="17" y="9" width="5" height="5" rx="1.5" fill="var(--cream)" opacity="0.9"/>
+  <rect x="5" y="9" width="4" height="5" rx="1.2" fill="var(--cream)" opacity="0.7"/>
+  <rect x="11" y="9" width="4" height="5" rx="1.2" fill="var(--cream)" opacity="0.7"/>
+  <rect x="3" y="15.5" width="22" height="2" fill="var(--accent)" opacity="0.85"/>
+  <circle cx="8" cy="22" r="2.5" fill="var(--ink2)"/>
+  <circle cx="8" cy="22" r="1" fill="var(--rule)"/>
+  <circle cx="20" cy="22" r="2.5" fill="var(--ink2)"/>
+  <circle cx="20" cy="22" r="1" fill="var(--rule)"/>
+  <line x1="0" y1="25" x2="28" y2="25" stroke="var(--rule)" stroke-width="1.5" stroke-linecap="round"/>
+</svg>`;
+
+function operatorBadge(operatorCode, operatorName) {
+  const svg = OPERATOR_LOGOS_SVG[operatorCode];
+  if (svg) {
+    return `<span style="display:inline-block;vertical-align:middle;height:20px;line-height:0;">${svg.replace('<svg ', '<svg height="20" ').replace(/width="\d+"/, '')}</span>`;
+  }
+  // Fallback: grey pill badge for unknown operators
+  const label = (operatorName || operatorCode || '?').split(' ').slice(0,2).join(' ');
+  return `<span style="display:inline-block;background:#6b7a99;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:var(--sans);white-space:nowrap;vertical-align:middle;">${label}</span>`;
+}
+function makeCard(svc) {
+  const dep = svc.std || '--:--';
+  const etd = svc.etd || '';
+  const isCx   = svc.isCancelled || etd === 'Cancelled';
+  const isLate = !isCx && etd && etd !== 'On time' && etd !== dep;
+  const cls  = isCx ? 'cancelled' : isLate ? 'delayed' : 'on-time';
+  const lbl  = isCx ? 'Cancelled' : isLate ? etd : 'On time';
+  const arr  = getArrival(svc);
+  const dur  = getDuration(svc);
+  const plt  = svc.platform;
+  const op   = svc.operator || '';
+
+  // Check if this specific train is already a favourite
+  const sid  = svc.serviceID || svc.serviceIdGuid || svc.serviceIdUrlSafe || '';
+  const isFav = favourites.some(f => f.serviceId === sid && sid);
+
+  const c = document.createElement('div');
+  c.className = `train-card ${cls}`;
+  c.dataset.std = dep; // used by load-more to track last shown time
+  c.innerHTML = `
+    <div class="card-body">
+      <div class="tc">
+        <div class="dep">${dep}</div>
+        <div class="arr">arr ${arr}</div>
+      </div>
+      <div class="mc">
+        <div class="dur-lbl">${dur}</div>
+        <div class="rail-line"></div>
+        <div class="stops-tag direct">Direct</div>
+      </div>
+      <div class="rc">
+        <div class="sc ${cls}">${lbl}</div>
+        <div class="plt-tag">${plt ? `Plt <strong>${plt}</strong>` : `<span style="color:var(--muted);font-size:10px;">Plt TBC</span>`}</div>
+      </div>
+    </div>
+    <div class="card-foot">
+      ${operatorBadge(svc.operatorCode, op)}
+      <span class="opr">${op}</span>
+      <span class="fav-btn ${isFav?'starred':''}" title="${isFav?'Remove from favourites':'Star this train'}">${isFav?'★':'☆'}</span>
+    </div>`;
+
+  c.querySelector('.fav-btn').addEventListener('click', e => {
+    e.stopPropagation(); toggleFav(svc, e.currentTarget);
+  });
+  c.addEventListener('click', () => openDetail(svc));
+  return c;
+}
+
+// Normalise calling points from either Darwin (nested) or Huxley (flat) format
+function getCallingPoints(svc) {
+  const raw = svc.subsequentCallingPoints;
+  if (!raw) return [];
+  // Darwin: { callingPointList: { callingPoint: [] } } or array of lists
+  // Huxley: array of { callingPoint: [] }
+  const lists = Array.isArray(raw) ? raw : [raw];
+  return lists.flatMap(g => {
+    const cp = g.callingPoint || g.callingPointList?.callingPoint || [];
+    return Array.isArray(cp) ? cp : [cp];
+  });
+}
+
+function getArrival(svc) {
+  const all = getCallingPoints(svc);
+  const d = all.find(cp => cp.crs && cp.crs.toUpperCase() === curTc.toUpperCase());
+  if (d) return d.st || '--:--';
+  if (all.length) return all[all.length-1].st || '--:--';
+  return '--:--';
+}
+
+function getDuration(svc) {
+  if (!svc.std) return '';
+  const all = getCallingPoints(svc);
+  const dest = all.find(cp => cp.crs && cp.crs.toUpperCase() === curTc.toUpperCase()) || all[all.length-1];
+  if (!dest?.st) return '';
+  const [dh,dm] = svc.std.split(':').map(Number);
+  const [ah,am] = dest.st.split(':').map(Number);
+  let mins = (ah*60+am) - (dh*60+dm); if (mins < 0) mins += 1440;
+  if (!mins) return '';
+  return `${Math.floor(mins/60)}h ${mins%60}m`;
+}
+
+// ════════════════════════════════════════
+// FAVOURITES — star a specific train service
+// ════════════════════════════════════════
+function toggleFav(svc, btn) {
+  const sid = svc.serviceID || svc.serviceIdGuid || svc.serviceIdUrlSafe || '';
+  const dep = svc.std || '--:--';
+  const label = `${dep} ${curFc}→${curTc}`;
+
+  const ex = sid ? favourites.findIndex(f => f.serviceId === sid) : -1;
+  if (ex >= 0) {
+    favourites.splice(ex, 1);
+    btn.classList.remove('starred'); btn.textContent = '☆';
+  } else {
+    if (favourites.length >= 5) { alert('Maximum 5 favourites. Remove one first.'); return; }
+    favourites.push({
+      label,
+      from: curFrom, to: curTo, fc: curFc, tc: curTc,
+      dep, operator: svc.operator || '',
+      serviceId: sid,
+      // Store full service so we can open detail directly without re-fetching board
+      svcSnapshot: JSON.parse(JSON.stringify(svc)),
+      snapshotFc: curFc, snapshotTc: curTc,
+      snapshotFrom: curFrom, snapshotTo: curTo,
+    });
+    btn.classList.add('starred'); btn.textContent = '★';
+  }
+  sv('favs2', favourites);
+  renderFavStrip();
+  renderFavPanel();
+}
+
+// ════════════════════════════════════════
+// DETAIL SHEET
+// ════════════════════════════════════════
+async function openDetail(svc) {
+  const dep = svc.std||'--:--', etd = svc.etd||'';
+  const isCx = svc.isCancelled||(etd==='Cancelled');
+  const isLate = !isCx && etd && etd!=='On time' && etd!==dep;
+  const cls = isCx?'cancelled':isLate?'delayed':'on-time';
+  const lbl = isCx?'Cancelled':isLate?`Delayed (${etd})`:etd||'On time';
+
+  document.getElementById('shTitle').textContent = `${dep} departure`;
+  document.getElementById('shMeta').innerHTML =
+    `<span><span class="sdot ${cls}"></span>${lbl}</span>
+     <span>${operatorBadge(svc.operatorCode, svc.operator||'')} ${svc.operator||''}</span>
+     ${svc.platform?`<span>Platform <strong>${svc.platform}</strong></span>`:`<span style="color:var(--muted)">Platform TBC</span>`}`;
+  // Wire the sheet star button
+  const shFavBtn = document.getElementById('shFavBtn');
+  const sid = svc.serviceID || svc.serviceIdGuid || svc.serviceIdUrlSafe || '';
+  const alreadyFaved = sid && favourites.some(f => f.serviceId === sid);
+  shFavBtn.textContent = alreadyFaved ? '★' : '☆';
+  shFavBtn.style.color = alreadyFaved ? '#e8a020' : 'var(--rule)';
+  shFavBtn.onclick = () => {
+    // Reuse toggleFav by passing a dummy button element
+    const dummyBtn = { classList: { add: ()=>{}, remove: ()=>{} }, textContent: '' };
+    toggleFav(svc, dummyBtn);
+    const nowFaved = sid && favourites.some(f => f.serviceId === sid);
+    shFavBtn.textContent = nowFaved ? '★' : '☆';
+    shFavBtn.style.color = nowFaved ? '#e8a020' : 'var(--rule)';
+    // Also update any card star button on screen
+    document.querySelectorAll('.fav-btn').forEach(b => {
+      b.textContent = nowFaved ? '★' : '☆';
+      b.classList.toggle('starred', nowFaved);
+    });
+  };
+
+  document.getElementById('stopsList').innerHTML =
+    '<div style="padding:16px 0;text-align:center;font-size:12px;color:var(--muted)">Loading calling points…</div>';
+  document.getElementById('sheetOverlay').classList.add('open');
+
+  try {
+    const detailId = svc.serviceIdUrlSafe || svc.serviceID;
+    let pts = [];
+    if (detailId) {
+      try {
+        const d = await xhrGet(apiUrl(`/service/${encodeURIComponent(detailId)}`));
+        pts = buildPtsFromService(d, svc);
+      } catch(e) { /* fall through to board data */ }
+    }
+    if (!pts.length) pts = buildPtsFromBoard(svc);
+    renderTracker(pts);
+    renderStops(pts);
+  } catch(e) { renderStops(buildPtsFromBoard(svc)); }
+}
+
+function buildPtsFromService(detail, svc) {
+  const pts = [];
+  const prev = (detail.previousCallingPoints||[]).flatMap(g => {
+    const cp = g.callingPoint || [];
+    return Array.isArray(cp) ? cp : [cp];
+  });
+  const next = (detail.subsequentCallingPoints||[]).flatMap(g => {
+    const cp = g.callingPoint || [];
+    return Array.isArray(cp) ? cp : [cp];
+  });
+  const now = new Date();
+  prev.forEach(cp => pts.push({name:cp.locationName||cp.crs,crs:cp.crs,planned:cp.st,est:cp.et,actual:cp.at,plt:cp.platform,passed:true}));
+  const [dh=0,dm=0] = (svc.std||'00:00').split(':').map(Number);
+  const dt = new Date(); dt.setHours(dh,dm,0,0);
+  pts.push({name:detail.locationName||curFrom,crs:detail.crs,planned:svc.std,est:svc.etd,actual:svc.atd,plt:svc.platform||detail.platform,isOri:true,passed:now>dt});
+  next.forEach(cp => pts.push({name:cp.locationName||cp.crs,crs:cp.crs,planned:cp.st,est:cp.et,actual:cp.at,plt:cp.platform,passed:!!(cp.at&&cp.at!=='No report'&&cp.at!=='On time')}));
+  return pts;
+}
+
+function buildPtsFromBoard(svc) {
+  const pts = [{name:curFrom,crs:curFc,planned:svc.std,est:svc.etd,actual:svc.atd,plt:svc.platform,isOri:true}];
+  getCallingPoints(svc).forEach(cp =>
+    pts.push({name:cp.locationName||cp.crs,crs:cp.crs,planned:cp.st,est:cp.et,actual:cp.at,plt:cp.platform,passed:!!(cp.at&&cp.at!=='No report'&&cp.at!=='On time')}));
+  return pts;
+}
+
+function renderTracker(pts) {
+  const el = document.getElementById('trainTracker');
+  if (!el) return;
+
+  // Find last passed stop and first upcoming stop
+  const nowM = nowMins();
+  let lastPassed = -1;
+
+  pts.forEach((pt, i) => {
+    // A stop is "passed" if it has an actual time, or est/planned <= now
+    const timeStr = pt.actual && pt.actual !== 'No report' ? pt.actual
+      : pt.est && pt.est !== 'On time' && pt.est !== 'No report' ? pt.est
+      : pt.planned;
+    if (!timeStr) return;
+    const [h, m] = timeStr.split(':').map(Number);
+    const stM = h * 60 + m;
+    // Handle overnight: if stM is much less than nowM, it's probably same day
+    const diff = (stM - nowM + 1440) % 1440;
+    if (diff > 1320) { // More than 22 hrs ahead = it's in the past
+      lastPassed = i;
+    } else if (diff <= 0 || pt.passed) {
+      lastPassed = i;
+    }
+  });
+
+  const nextIdx = Math.min(lastPassed + 1, pts.length - 1);
+
+  // Need at least two points for a tracker
+  if (pts.length < 2 || lastPassed < 0) { el.style.display = 'none'; return; }
+
+  const from = pts[lastPassed];
+  const to   = pts[nextIdx];
+  if (!from || !to || lastPassed === nextIdx) { el.style.display = 'none'; return; }
+
+  // Calculate % progress between these two stops using times
+  const getM = pt => {
+    const t = (pt.actual && pt.actual !== 'No report') ? pt.actual
+      : (pt.est && pt.est !== 'On time') ? pt.est : pt.planned;
+    if (!t) return null;
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  };
+  const fromM = getM(from);
+  const toM   = getM(to);
+
+  let pct = 50; // default midpoint if we can't calculate
+  if (fromM !== null && toM !== null) {
+    const totalMins = (toM - fromM + 1440) % 1440;
+    const elapsedMins = (nowM - fromM + 1440) % 1440;
+    pct = totalMins > 0 ? Math.min(100, Math.max(0, (elapsedMins / totalMins) * 100)) : 50;
+  }
+
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="tracker-label" style="display:flex;align-items:center;gap:6px;">${TRAIN_ICON} Live position</div>
+    <div class="tracker-bar-wrap">
+      <div class="tracker-bar">
+        <div class="tracker-fill" style="width:${pct}%"></div>
+        <div class="tracker-train-icon" style="left:${pct}%"><svg width="26" height="26" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="6" width="22" height="14" rx="4" fill="var(--ink)"/><rect x="17" y="9" width="5" height="5" rx="1.5" fill="var(--cream)" opacity="0.9"/><rect x="5" y="9" width="4" height="5" rx="1.2" fill="var(--cream)" opacity="0.7"/><rect x="11" y="9" width="4" height="5" rx="1.2" fill="var(--cream)" opacity="0.7"/><rect x="3" y="15.5" width="22" height="2" fill="var(--accent)" opacity="0.85"/><circle cx="8" cy="22" r="2.5" fill="var(--ink2)"/><circle cx="8" cy="22" r="1" fill="var(--rule)"/><circle cx="20" cy="22" r="2.5" fill="var(--ink2)"/><circle cx="20" cy="22" r="1" fill="var(--rule)"/></svg></div>
+      </div>
+    </div>
+    <div class="tracker-ends">
+      <div class="tracker-end-nm">${from.name}</div>
+      <div class="tracker-end-nm right">${to.name}</div>
+    </div>
+    <div class="tracker-between">Between <strong>${from.name}</strong> and <strong>${to.name}</strong></div>
+  `;
+}
+
+function renderStops(pts) {
+  const c = document.getElementById('stopsList'); c.innerHTML = '';
+  if (!pts.length) { c.innerHTML='<div style="color:var(--muted);font-size:13px;">No stop data available.</div>'; return; }
+  pts.forEach((pt, i) => {
+    const isLast = i === pts.length-1;
+    const isCxl  = pt.est === 'Cancelled';
+    const hasActual = pt.actual && pt.actual!=='No report' && pt.actual!=='On time';
+    const hasEst    = !hasActual && !isCxl && pt.est && pt.est!=='No report' && pt.est!=='On time' && pt.est!==pt.planned;
+    // Platform: show confirmed value, or "TBC" for origin/dest, nothing for intermediate stops without it
+    const showPlt = pt.plt
+      ? `<div class="stop-plt">Platform <strong>${pt.plt}</strong></div>`
+      : (i===0||isLast) ? `<div class="stop-plt" style="color:var(--muted)">Platform TBC</div>` : '';
+    const row = document.createElement('div'); row.className='stop-row';
+    const dotCls = (i===0||isLast)?'term':pt.passed?'done':'';
+    row.innerHTML = `
+      <div class="stop-left">
+        <div class="stop-dot ${dotCls}"></div>
+        ${!isLast?'<div class="stop-conn"></div>':''}
+      </div>
+      <div class="stop-info">
+        <div class="stop-nm">${pt.name||'—'}</div>
+        <div class="stop-times">
+          ${pt.planned ? `<div class="st-blk"><div class="st-lbl">Planned</div><div class="st-val">${pt.planned}</div></div>` : ''}
+          ${hasActual  ? `<div class="st-blk"><div class="st-lbl">Actual</div><div class="st-val done">${pt.actual}</div></div>` : ''}
+          ${hasEst     ? `<div class="st-blk"><div class="st-lbl">Est.</div><div class="st-val late">${pt.est}</div></div>` : ''}
+          ${isCxl      ? `<div class="st-blk"><div class="st-lbl">Status</div><div class="st-val cxl">Cancelled</div></div>` : ''}
+        </div>
+        ${showPlt}
+      </div>`;
+    c.appendChild(row);
+  });
+}
+
+// ════════════════════════════════════════
+// POPULAR / FAV STRIP CLICKS
+// ════════════════════════════════════════
+document.getElementById('popularList').addEventListener('click', e => {
+  const it = e.target.closest('.pop-chip'); if (!it) return;
+  document.getElementById('fromInput').value = it.dataset.from;
+  document.getElementById('toInput').value   = it.dataset.to;
+  doSearch();
+});
+document.getElementById('favStrip').addEventListener('click', e => {
+  const ch = e.target.closest('.fav-chip'); if (!ch) return;
+  const f = favourites[parseInt(ch.dataset.i)]; if (!f) return;
+  if (f.svcSnapshot) {
+    // Restore context so detail sheet shows correct route info
+    curFrom = f.snapshotFrom; curTo = f.snapshotTo;
+    curFc = f.snapshotFc; curTc = f.snapshotTc;
+    openDetail(f.svcSnapshot);
+  } else {
+    // Fallback: search the route
+    document.getElementById('fromInput').value = f.from;
+    document.getElementById('toInput').value = f.to;
+    doSearch();
+  }
+});
+
+// ════════════════════════════════════════
+// FAVOURITES PANEL
+// ════════════════════════════════════════
+document.getElementById('favsBtn').addEventListener('click', () => {
+  renderFavPanel(); document.getElementById('panelOverlay').classList.add('open');
+});
+document.getElementById('pnBody').addEventListener('click', e => {
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    favourites.splice(parseInt(del.dataset.del), 1);
+    sv('favs2', favourites); renderFavStrip(); renderFavPanel(); return;
+  }
+  const row = e.target.closest('.fav-row');
+  if (row) {
+    const f = favourites[parseInt(row.dataset.i)]; if (!f) return;
+    document.getElementById('panelOverlay').classList.remove('open');
+    if (f.svcSnapshot) {
+      curFrom = f.snapshotFrom; curTo = f.snapshotTo;
+      curFc = f.snapshotFc; curTc = f.snapshotTc;
+      openDetail(f.svcSnapshot);
+    } else {
+      document.getElementById('fromInput').value = f.from;
+      document.getElementById('toInput').value = f.to;
+      doSearch();
+    }
+  }
+});
+
+// ════════════════════════════════════════
+// CLOSE OVERLAYS
+// ════════════════════════════════════════
+document.getElementById('shClose').addEventListener('click', () => document.getElementById('sheetOverlay').classList.remove('open'));
+document.getElementById('sheetOverlay').addEventListener('click', e => { if(e.target===document.getElementById('sheetOverlay')) document.getElementById('sheetOverlay').classList.remove('open'); });
+document.getElementById('pnClose').addEventListener('click', () => document.getElementById('panelOverlay').classList.remove('open'));
+document.getElementById('panelOverlay').addEventListener('click', e => { if(e.target===document.getElementById('panelOverlay')) document.getElementById('panelOverlay').classList.remove('open'); });
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+renderPopular();
+renderFavStrip();
+</script>
+</body>
+</html>
