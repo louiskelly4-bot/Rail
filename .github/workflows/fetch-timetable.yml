@@ -1,0 +1,36 @@
+name: Fetch Timetable Data
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 2am UTC every night
+  workflow_dispatch:        # manual trigger from Actions tab
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Fetch timetable from Realtime Trains API
+        env:
+          RTT_USER: ${{ secrets.RTT_USER }}
+          RTT_PASS: ${{ secrets.RTT_PASS }}
+        run: python scripts/fetch_timetable.py
+
+      - name: Commit timetable.json if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add timetable.json
+          git diff --cached --quiet || git commit -m "chore: update timetable $(date -u +%Y-%m-%d)"
+          git push
