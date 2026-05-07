@@ -2,27 +2,31 @@ name: Fetch Timetable Data
 
 on:
   schedule:
-    - cron: '0 6 * * *'   # 6am UTC every morning (after NR publishes at ~6am)
-  workflow_dispatch:        # manual trigger from Actions tab
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 30     # full schedule parsing can take ~10 mins
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
-      - name: Run timetable fetch script
+      - name: Run timetable fetch
+        env:
+          NR_USER: ${{ secrets.NR_USER }}
+          NR_PASS: ${{ secrets.NR_PASS }}
         run: python scripts/fetch_timetable.py
 
-      - name: Commit timetable.json if changed
+      - name: Commit timetable.json
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
