@@ -361,7 +361,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 <script>
 // App version — increment: MAJOR.MINOR.PATCH
 // MAJOR: breaking changes, MINOR: new features, PATCH: bug fixes
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.3.2';
 const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
 const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
 
@@ -1107,12 +1107,8 @@ async function fetchTrains(offset, mode) {
     if (btn) { btn.classList.add('busy'); btn.textContent = 'Loading…'; }
   }
 
-  // Safe wrapper — if a fetch fails, returns [] instead of crashing everything
-  async function safeFetch(fn) {
-    try { return await fn(); } catch(e) { console.warn('fetch failed:', e.message); return []; }
-  }
 
-  // Fetch with destination filter (fast, catches most trains)
+  // Fetch with destination filter (fast, reliable, server-side filtering)
   async function fetchWindow(off) {
     const clamped = Math.max(-120, Math.min(119, off));
     const url = apiUrl(`/departures/${curFc}/to/${curTc}/20`, {
@@ -1124,52 +1120,39 @@ async function fetchTrains(offset, mode) {
     return raw.trainServices || [];
   }
 
-  // Fetch all departures, filter client-side for those calling at destination
-  // Catches trains like Northern Manchester→Leeds via Bradford (different route)
-  async function fetchBroad(off) {
-    const clamped = Math.max(-120, Math.min(119, off));
-    const url = apiUrl(`/departures/${curFc}/30`, {
-      expand: 'true',
-      timeOffset: clamped,
-      timeWindow: 120
-    });
-    const raw = await xhrGet(url);
-    const all = raw.trainServices || [];
-    return all.filter(s => {
-      // Include if destination matches OR any calling point matches
-      const dest = (s.destination || []).concat(s.currentDestinations || []);
-      if (dest.some(d => d.crs && d.crs.toUpperCase() === curTc.toUpperCase())) return true;
-      const cps = getCallingPoints(s);
-      return cps.some(cp => cp.crs && cp.crs.toUpperCase() === curTc.toUpperCase());
-    });
-  }
 
   const INITIAL_BATCH = 7;
   const PAGE_BATCH = 3;
   const BATCH = mode === 'replace' ? INITIAL_BATCH : PAGE_BATCH;
 
-  // Fetch windows sequentially, up to 12 windows (24 hrs).
-  // Each window passes the raw accumulated offset to fetchWindow/fetchBroad,
-  // which clamp it to the API limit. Deduplication by serviceID means that
-  // once the API stops returning new trains (offset saturated at 119),
-  // addedThisWindow drops to 0 and we stop — no wasted requests.
+  // Fetch from the filtered endpoint (destination filter applied server-side).
+  // Request 30 rows per window across up to 6 windows (12 hrs total).
+  // This is reliable — the API handles the filtering correctly.
+  async function fetchWindow(off) {
+    const clamped = Math.max(-120, Math.min(119, off));
+    const url = apiUrl(`/departures/${curFc}/to/${curTc}/30`, {
+      expand: 'true',
+      timeOffset: clamped,
+      timeWindow: 120
+    });
+    const raw = await xhrGet(url);
+    return raw.trainServices || [];
+  }
+
   async function fetchEnough(startOffset) {
     const allResults = [];
     const seen = new Set();
-    for (let w = 0; w < 12; w++) {
+    let lastAdded = 1;
+    for (let w = 0; w < 6 && lastAdded > 0; w++) {
       const off = startOffset + w * 120;
-      const [filtered, broad] = await Promise.all([
-        safeFetch(() => fetchWindow(off)),
-        safeFetch(() => fetchBroad(off)),
-      ]);
-      let added = 0;
-      for (const s of [...filtered, ...broad]) {
+      let results = [];
+      try { results = await fetchWindow(off); } catch(e) { console.warn(e.message); }
+      lastAdded = 0;
+      for (const s of results) {
         const key = s.serviceID || (s.std + '_' + (s.operator||''));
-        if (!seen.has(key)) { seen.add(key); allResults.push(s); added++; }
+        if (!seen.has(key)) { seen.add(key); allResults.push(s); lastAdded++; }
       }
-      // If we have enough trains AND this window added something, we're done.
-      // If this window added nothing at all, the API has hit its ceiling — stop.
-      if ((allResults.length >= BATCH && added > 0) || added === 0) break;
+      if (allResults.length >= BATCH && lastAdded > 0) break;
     }
     return allResults;
   }
