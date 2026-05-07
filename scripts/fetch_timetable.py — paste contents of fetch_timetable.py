@@ -1,304 +1,304 @@
 """
 fetch_timetable.py — Trackr timetable generator
-Runs nightly via GitHub Actions (free, no API key needed).
+Runs nightly via GitHub Actions.
 
-Uses Network Rail's open schedule data feed in JSON format via the
-OpenTrainTimes mirror (networkrail.opendata.opentraintimes.com).
-No registration required. Generates timetable.json for the next 14 days.
+Data source: National Rail Data Portal (opendata.nationalrail.co.uk)
+  - Free registration required
+  - Subscribe to the "Timetable" feed after registering
+  - Add credentials as GitHub secrets: NR_USER and NR_PASS
 
-The JSON schedule format from Network Rail contains:
-  - BS (Basic Schedule) records: one per train service
-  - LO (Location Origin): origin stop
-  - LI (Location Intermediate): intermediate stops  
-  - LT (Location Terminus): final stop
-
-Each stop has a TIPLOC code (not CRS). We map TIPLOC → CRS using the
-master station names file (also freely available).
-
-Output timetable.json format matches what the Trackr app expects:
-{
-  "generated": "2026-05-01",
-  "routes": {
-    "LDS-TBY-2026-05-02": [
-      {
-        "std": "07:15", "arr": "08:33",
-        "operator": "TransPennine Express", "operatorCode": "TP",
-        "serviceId": "W12345",
-        "stops": [
-          {"crs": "LDS", "name": "Leeds", "dep": "07:15"},
-          {"crs": "YRK", "name": "York",  "dep": "07:38"},
-          {"crs": "TBY", "name": "Thornaby", "arr": "08:33"}
-        ]
-      }
-    ]
-  }
-}
+Auth flow:
+  1. POST to /authenticate → get token
+  2. GET /api/staticfeeds/3.0/timetable with X-Auth-Token header → zip file
+  3. Unzip → parse CIF format → output timetable.json
 """
 
-import gzip, io, json, os, re, sys, time, urllib.request, zipfile
+import io, json, os, sys, urllib.request, urllib.parse, zipfile
 from collections import defaultdict
 from datetime import date, timedelta
 
-# ── CONFIG ───────────────────────────────────────────────────────────────────
-DAYS_AHEAD  = 14
+# ── CREDENTIALS ───────────────────────────────────────────────────────────────
+NR_USER = os.environ.get('NR_USER', '')
+NR_PASS = os.environ.get('NR_PASS', '')
 
-# Network Rail open data — full daily JSON schedule (all TOCs).
-# Via OpenTrainTimes mirror — no auth needed.
-SCHEDULE_URL = "https://networkrail.opendata.opentraintimes.com/mirror/schedule/cif_all_full_daily/toc-full.json.gz"
+if not NR_USER or not NR_PASS:
+    print("ERROR: NR_USER and NR_PASS secrets not set.")
+    print("Register at https://opendata.nationalrail.co.uk/ and subscribe to Timetable feed.")
+    sys.exit(1)
 
-# TIPLOC → CRS mapping from Network Rail master stations file (free, no auth)
-# This maps the 7-char TIPLOC codes in the schedule to 3-char CRS station codes
-TIPLOC_URL = "https://networkrail.opendata.opentraintimes.com/mirror/msn/toc-all.msn"
+BASE     = "https://opendata.nationalrail.co.uk"
+DAYS_AHEAD = 14
 
-# ATOC code → operator name
 ATOC_NAMES = {
     'AW': 'Transport for Wales', 'CC': 'c2c', 'CH': 'Chiltern Railways',
     'CS': 'Caledonian Sleeper', 'EM': 'East Midlands Railway',
-    'ES': 'Eurostar', 'GA': 'Greater Anglia', 'GC': 'Grand Central',
-    'GN': 'Great Northern', 'GR': 'LNER', 'GW': 'Great Western Railway',
-    'GX': 'Gatwick Express', 'HT': 'Hull Trains', 'HX': 'Heathrow Express',
-    'IL': 'Island Line', 'LD': 'Lumo', 'LE': 'Greater Anglia',
-    'LM': 'West Midlands Trains', 'LN': 'LNER', 'LO': 'London Overground',
-    'ME': 'Merseyrail', 'MX': 'Grand Central', 'NT': 'Northern Trains',
-    'NY': 'North Yorkshire Moors Railway', 'SE': 'Southeastern',
-    'SJ': 'South Western Railway', 'SN': 'Southern', 'SR': 'ScotRail',
-    'SW': 'South Western Railway', 'TL': 'Thameslink', 'TP': 'TransPennine Express',
-    'TW': 'Transport for Wales', 'VT': 'Avanti West Coast',
-    'WM': 'West Midlands Trains', 'XC': 'CrossCountry', 'XR': 'Elizabeth line',
-    'ZZ': 'Network Rail',
+    'GA': 'Greater Anglia', 'GC': 'Grand Central', 'GN': 'Great Northern',
+    'GR': 'LNER', 'GW': 'Great Western Railway', 'GX': 'Gatwick Express',
+    'HT': 'Hull Trains', 'HX': 'Heathrow Express', 'IL': 'Island Line',
+    'LD': 'Lumo', 'LE': 'Greater Anglia', 'LM': 'West Midlands Trains',
+    'LN': 'LNER', 'LO': 'London Overground', 'ME': 'Merseyrail',
+    'NT': 'Northern Trains', 'SE': 'Southeastern', 'SN': 'Southern',
+    'SR': 'ScotRail', 'SW': 'South Western Railway', 'TL': 'Thameslink',
+    'TP': 'TransPennine Express', 'TW': 'Transport for Wales',
+    'VT': 'Avanti West Coast', 'WM': 'West Midlands Trains',
+    'XC': 'CrossCountry', 'XR': 'Elizabeth line',
 }
 
-# ── HELPERS ───────────────────────────────────────────────────────────────────
-def fetch_url(url, label=""):
-    print(f"Downloading {label or url}...")
-    req = urllib.request.Request(url, headers={"User-Agent": "Trackr/1.0 (github-actions)"})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        return r.read()
-
-def fmt_time(t):
-    """Convert HHMM or HHMMSS → HH:MM, handling H (half-minute suffix)."""
-    if not t or t.strip() == '':
-        return None
-    t = t.strip().rstrip('H').rstrip('h')
-    t = t.zfill(4)[:4]
-    if not t.isdigit():
-        return None
-    h, m = int(t[:2]), int(t[2:4])
-    if h > 47 or m > 59:  # overnight trains can exceed 24:00
-        h = h % 24
-    return f"{h:02d}:{m:02d}"
-
-def date_in_range(start_str, end_str, days_of_week, target_date):
-    """Check if target_date falls within schedule validity and day-of-week mask."""
-    try:
-        start = date(int(start_str[:4]), int(start_str[4:6]), int(start_str[6:8]))
-        end   = date(int(end_str[:4]),   int(end_str[4:6]),   int(end_str[6:8]))
-    except (ValueError, IndexError):
-        return False
-    if not (start <= target_date <= end):
-        return False
-    # days_of_week is "YYYYYYY" for Mon-Sun, Y=runs, N=doesn't
-    day_idx = target_date.weekday()  # 0=Mon, 6=Sun
-    return len(days_of_week) > day_idx and days_of_week[day_idx] == '1'
-
-# ── LOAD TIPLOC → CRS MAP ─────────────────────────────────────────────────────
-print("Loading TIPLOC → CRS map...")
-tiploc_to_crs  = {}  # TIPLOC → CRS code
-tiploc_to_name = {}  # TIPLOC → station name
-
-try:
-    msn_data = fetch_url(TIPLOC_URL, "master stations file")
-    for line in msn_data.decode('latin-1').splitlines():
-        if line.startswith('A') and len(line) >= 36:
-            # MSN format: A + name (26 chars) + spaces + TIPLOC (7) + ... + CRS (3)
-            name   = line[1:27].strip().title()
-            tiploc = line[36:43].strip()
-            crs    = line[49:52].strip()
-            if tiploc and crs and len(crs) == 3 and crs.isalpha():
-                tiploc_to_crs[tiploc]  = crs.upper()
-                tiploc_to_name[tiploc] = name
-    print(f"  Loaded {len(tiploc_to_crs)} TIPLOC → CRS mappings")
-except Exception as e:
-    print(f"  Warning: Could not load TIPLOC map: {e}")
-    print("  Falling back to TIPLOC as station code")
-
-# ── LOAD SCHEDULE JSON ────────────────────────────────────────────────────────
-print("Loading full schedule JSON (this is large — may take a minute)...")
-try:
-    raw = fetch_url(SCHEDULE_URL, "Network Rail full schedule")
-    data = json.loads(gzip.decompress(raw).decode('utf-8'))
-except Exception as e:
-    print(f"ERROR downloading schedule: {e}")
-    with open("timetable.json", "w") as f:
-        json.dump({"generated": date.today().isoformat(), "routes": {}, "error": str(e)}, f)
-    sys.exit(0)
-
-print(f"Schedule loaded. Processing...")
-
-# ── ROUTE FILTER ─────────────────────────────────────────────────────────────
-# Only index routes between these station pairs to keep timetable.json small.
-# Add any CRS pairs you care about. Both directions are indexed automatically.
-# The more pairs you add, the larger timetable.json gets (~2KB per route-day).
 ROUTE_PAIRS = {
-    # Yorkshire / North East
-    ("LDS", "TBY"), ("LDS", "MBR"), ("LDS", "NCL"), ("LDS", "YRK"),
-    ("LDS", "HUD"), ("LDS", "MAN"), ("LDS", "MCV"), ("LDS", "SHF"),
-    ("LDS", "BHM"), ("LDS", "EUS"), ("LDS", "KGX"), ("LDS", "PAD"),
-    ("LDS", "WAT"), ("LDS", "VIC"), ("LDS", "LST"),
-    # Manchester
-    ("MAN", "LDS"), ("MAN", "NCL"), ("MAN", "BHM"), ("MAN", "EUS"),
-    ("MAN", "PAD"), ("MAN", "LIV"), ("MAN", "SHF"),
-    # London terminals
-    ("EUS", "MAN"), ("EUS", "LIV"), ("EUS", "BHM"), ("EUS", "GLC"),
-    ("KGX", "NCL"), ("KGX", "EDB"), ("KGX", "YRK"), ("KGX", "LDS"),
-    ("PAD", "BRI"), ("PAD", "CDF"), ("PAD", "EXD"),
-    ("VIC", "GTW"), ("VIC", "BHV"),
-    ("WAT", "SOT"), ("WAT", "BOU"),
-    # Scotland
-    ("EDB", "GLC"), ("EDB", "GLQ"), ("GLC", "EDB"),
-    # Cross-country
-    ("NCL", "BHM"), ("NCL", "EDB"), ("BHM", "BRI"), ("BHM", "NOT"),
-    # Thornaby connections
-    ("TBY", "LDS"), ("TBY", "NCL"), ("TBY", "MBR"), ("TBY", "YRK"),
+    ("LDS","TBY"),("LDS","MBR"),("LDS","NCL"),("LDS","YRK"),("LDS","HUD"),
+    ("LDS","MAN"),("LDS","MCV"),("LDS","SHF"),("LDS","BHM"),("LDS","EUS"),
+    ("LDS","KGX"),("LDS","PAD"),("LDS","WAT"),("LDS","VIC"),("LDS","LST"),
+    ("MAN","LDS"),("MAN","NCL"),("MAN","BHM"),("MAN","EUS"),("MAN","PAD"),
+    ("MAN","LIV"),("MAN","SHF"),("EUS","MAN"),("EUS","LIV"),("EUS","BHM"),
+    ("EUS","GLC"),("KGX","NCL"),("KGX","EDB"),("KGX","YRK"),("KGX","LDS"),
+    ("PAD","BRI"),("PAD","CDF"),("PAD","EXD"),("VIC","GTW"),("WAT","SOT"),
+    ("NCL","BHM"),("NCL","EDB"),("BHM","BRI"),("BHM","NOT"),
+    ("TBY","LDS"),("TBY","NCL"),("TBY","MBR"),("TBY","YRK"),
+    ("EDB","GLC"),("EDB","GLQ"),("GLC","EDB"),
 }
-
-# Build a set of (fc, tc) pairs including both directions
 INDEXED_PAIRS = set()
 for a, b in ROUTE_PAIRS:
     INDEXED_PAIRS.add((a, b))
     INDEXED_PAIRS.add((b, a))
 
-print(f"Indexing {len(INDEXED_PAIRS)} route directions across {DAYS_AHEAD} days...")
+# ── HELPERS ───────────────────────────────────────────────────────────────────
+def fmt_time(t):
+    """Convert HHMM or HHMMSS to HH:MM, strip trailing H (half minute)."""
+    if not t:
+        return None
+    t = str(t).strip().rstrip('Hh').zfill(4)[:4]
+    if not t.isdigit():
+        return None
+    return f"{int(t[:2]) % 24:02d}:{t[2:4]}"
 
+def parse_yymmdd(s):
+    """Parse YYMMDD string to date object."""
+    if not s or len(s) < 6:
+        return None
+    try:
+        y = int(s[0:2])
+        y += 2000 if y < 60 else 1900
+        return date(y, int(s[2:4]), int(s[4:6]))
+    except ValueError:
+        return None
+
+def runs_on(days_str, target_date):
+    """days_str is 'NYYYYNN' Mon-Sun. Returns True if service runs on target_date."""
+    if not days_str or len(days_str) < 7:
+        return False
+    return days_str[target_date.weekday()] == '1'
+
+# ── STEP 1: AUTHENTICATE ─────────────────────────────────────────────────────
+print("Authenticating with National Rail Data Portal...")
+auth_data = urllib.parse.urlencode({'username': NR_USER, 'password': NR_PASS}).encode()
+auth_req  = urllib.request.Request(
+    f"{BASE}/authenticate",
+    data=auth_data,
+    headers={"Content-Type": "application/x-www-form-urlencoded",
+             "User-Agent": "Trackr/1.3 github-actions"},
+    method="POST"
+)
+try:
+    with urllib.request.urlopen(auth_req, timeout=30) as r:
+        auth_resp = json.loads(r.read())
+    token = auth_resp.get('token', '')
+    if not token:
+        print(f"ERROR: No token in response: {auth_resp}")
+        sys.exit(1)
+    print(f"Authenticated. Roles: {list(auth_resp.get('roles', {}).keys())}")
+except Exception as e:
+    print(f"ERROR authenticating: {e}")
+    sys.exit(1)
+
+# ── STEP 2: DOWNLOAD TIMETABLE ZIP ───────────────────────────────────────────
+print("Downloading timetable zip...")
+tt_req = urllib.request.Request(
+    f"{BASE}/api/staticfeeds/3.0/timetable",
+    headers={"X-Auth-Token": token, "User-Agent": "Trackr/1.3 github-actions"}
+)
+try:
+    with urllib.request.urlopen(tt_req, timeout=300) as r:
+        zip_data = r.read()
+    print(f"Downloaded {len(zip_data) / 1024 / 1024:.1f} MB")
+except Exception as e:
+    print(f"ERROR downloading timetable: {e}")
+    sys.exit(1)
+
+# ── STEP 3: UNZIP AND FIND CIF FILE ──────────────────────────────────────────
+print("Unzipping...")
+try:
+    zf = zipfile.ZipFile(io.BytesIO(zip_data))
+    print(f"Files in zip: {zf.namelist()}")
+    # Find the .MCA file (main timetable) and .MSN file (station names)
+    mca_name = next((n for n in zf.namelist() if n.upper().endswith('.MCA')), None)
+    msn_name = next((n for n in zf.namelist() if n.upper().endswith('.MSN')), None)
+    if not mca_name:
+        print("ERROR: No .MCA file found in zip")
+        sys.exit(1)
+    print(f"Timetable file: {mca_name}")
+except Exception as e:
+    print(f"ERROR unzipping: {e}")
+    sys.exit(1)
+
+# ── STEP 4: PARSE MSN (station names → TIPLOC → CRS) ─────────────────────────
+tiploc_crs  = {}
+tiploc_name = {}
+if msn_name:
+    print("Parsing station names...")
+    with zf.open(msn_name) as f:
+        for line in io.TextIOWrapper(f, encoding='latin-1'):
+            if line.startswith('A') and len(line) >= 52:
+                name   = line[1:27].strip().title()
+                tiploc = line[36:43].strip()
+                crs    = line[49:52].strip().upper()
+                if tiploc and crs and len(crs) == 3 and crs.isalpha():
+                    tiploc_crs[tiploc]  = crs
+                    tiploc_name[tiploc] = name
+    print(f"Loaded {len(tiploc_crs)} TIPLOC→CRS mappings")
+
+# ── STEP 5: PARSE CIF (.MCA) ─────────────────────────────────────────────────
+print("Parsing timetable CIF data...")
 today      = date.today()
 date_range = [today + timedelta(days=i) for i in range(1, DAYS_AHEAD + 1)]
 output     = defaultdict(list)
-seen_keys  = defaultdict(set)  # (from_crs, to_crs, date, service_id) dedup
+seen       = defaultdict(set)
 
-# ── PARSE SCHEDULE ────────────────────────────────────────────────────────────
-# The JSON schedule has a top-level "JsonScheduleV1" array and other record types
-schedules = data.get("JsonScheduleV1", [])
-print(f"Processing {len(schedules):,} schedule records...")
+# CIF state machine: accumulate records per train
+current = None  # dict with keys: uid, atoc, start, end, days, stops
 
-processed = 0
-skipped   = 0
+def flush(current, date_range, output, seen):
+    """Index a completed train service into output."""
+    if not current or len(current['stops']) < 2:
+        return
+    stops = current['stops']
+    atoc  = current['atoc']
+    uid   = current['uid']
 
-for record in schedules:
-    sched = record.get("JsonScheduleV1", {})
-    if not sched:
-        continue
-
-    # Only passenger trains
-    train_category = sched.get("train_category", "")
-    if train_category not in ("OO", "XX", "XZ", "OW", "XE", "XI", "XR"):
-        # OO = ordinary passenger, XX = express passenger, etc.
-        pass  # include all for now, filter by category if needed
-
-    transaction = sched.get("transaction_type", "")
-    if transaction == "Delete":
-        continue
-
-    sched_segment = sched.get("schedule_segment", {})
-    locations     = sched_segment.get("schedule_location", [])
-    if not locations or len(locations) < 2:
-        skipped += 1
-        continue
-
-    # Service metadata
-    uid         = sched.get("CIF_train_uid", "").strip()
-    start_date  = sched.get("schedule_start_date", "").replace("-", "")
-    end_date    = sched.get("schedule_end_date",   "").replace("-", "")
-    days_mask   = sched.get("schedule_days_runs",  "0000000")
-    atoc        = sched_segment.get("CIF_train_category", "")
-    atoc_code   = sched.get("atoc_code", "").strip()
-    operator    = ATOC_NAMES.get(atoc_code, atoc_code)
-    stp         = sched.get("CIF_stp_indicator", "P")  # P=permanent, O=overlay, C=cancel, N=new
-
-    if stp == "C":  # planned cancellation
-        continue
-
-    # Build stop list with CRS codes
-    stops = []
-    for loc in locations:
-        tiploc  = loc.get("tiploc_code", "").strip()
-        dep_raw = loc.get("departure", "") or loc.get("public_departure", "")
-        arr_raw = loc.get("arrival",   "") or loc.get("public_arrival",   "")
-        pass_raw= loc.get("pass", "")  # passing time — not a calling point
-
-        crs  = tiploc_to_crs.get(tiploc,  tiploc[:3].upper() if tiploc else None)
-        name = tiploc_to_name.get(tiploc, tiploc)
-
-        dep = fmt_time(dep_raw)
-        arr = fmt_time(arr_raw)
-
-        # Skip passing locations (no public stop)
-        if not dep and not arr:
-            continue
-        if not crs:
-            continue
-
-        stops.append({"crs": crs, "name": name, "dep": dep, "arr": arr})
-
-    if len(stops) < 2:
-        skipped += 1
-        continue
-
-    # For each target date, check if this service runs
     for target_date in date_range:
-        if not date_in_range(start_date, end_date, days_mask, target_date):
+        s_date = current['start']
+        e_date = current['end']
+        if not s_date or not e_date:
             continue
-
+        if not (s_date <= target_date <= e_date):
+            continue
+        if not runs_on(current['days'], target_date):
+            continue
         date_str = target_date.isoformat()
 
-        # Index every (origin → destination) pair of calling points
-        for i, from_stop in enumerate(stops):
-            if not from_stop["dep"]:  # must have a departure
+        for i, from_st in enumerate(stops):
+            if not from_st['dep']:
                 continue
-            for to_stop in stops[i+1:]:
-                fc = from_stop["crs"]
-                tc = to_stop["crs"]
-                if fc == tc:
-                    continue
-
-                # Only index pre-defined route pairs to keep file size manageable
+            fc = from_st['crs']
+            for to_st in stops[i+1:]:
+                tc = to_st['crs']
                 if (fc, tc) not in INDEXED_PAIRS:
                     continue
-
-                dedup_key = (fc, tc, date_str, uid)
-                if dedup_key in seen_keys[date_str]:
+                key   = f"{fc}-{tc}-{date_str}"
+                dedup = (fc, tc, uid)
+                if dedup in seen[date_str]:
                     continue
-                seen_keys[date_str].add(dedup_key)
-
-                route_key = f"{fc}-{tc}-{date_str}"
-                output[route_key].append({
-                    "std":          from_stop["dep"],
-                    "arr":          to_stop["arr"] or to_stop["dep"],
-                    "operator":     operator,
-                    "operatorCode": atoc_code,
-                    "serviceId":    uid,
-                    "stops":        stops[i:stops.index(to_stop) + 1],
+                seen[date_str].add(dedup)
+                j = stops.index(to_st)
+                output[key].append({
+                    'std':          from_st['dep'],
+                    'arr':          to_st['arr'] or to_st['dep'],
+                    'operator':     ATOC_NAMES.get(atoc, atoc),
+                    'operatorCode': atoc,
+                    'serviceId':    uid,
+                    'stops':        stops[i:j+1],
                 })
 
-    processed += 1
-    if processed % 10000 == 0:
-        print(f"  {processed:,} processed, {len(output):,} route-date pairs so far...")
+line_count = 0
+with zf.open(mca_name) as f:
+    for raw_line in io.TextIOWrapper(f, encoding='latin-1'):
+        line = raw_line.rstrip('\n')
+        if len(line) < 2:
+            continue
+        rec = line[:2]
+        line_count += 1
 
-# Sort each route by departure time
+        if rec == 'BS':  # Basic Schedule — new train
+            flush(current, date_range, output, seen)
+            stp = line[79] if len(line) > 79 else 'P'
+            if stp == 'C':
+                current = None
+                continue
+            current = {
+                'uid':   line[3:9].strip(),
+                'start': parse_yymmdd(line[9:15]),
+                'end':   parse_yymmdd(line[15:21]),
+                'days':  line[21:28],
+                'atoc':  '',
+                'stops': [],
+            }
+
+        elif rec == 'BX' and current:  # Extra schedule info — has ATOC code
+            current['atoc'] = line[25:27].strip()
+
+        elif rec == 'TI':  # TIPLOC insert — supplement our map
+            tip  = line[2:9].strip()
+            crs  = line[53:56].strip().upper()
+            name = line[56:72].strip().title()
+            if tip and crs and len(crs) == 3 and crs.isalpha():
+                tiploc_crs.setdefault(tip, crs)
+                tiploc_name.setdefault(tip, name)
+
+        elif rec == 'LO' and current:  # Location Origin
+            tip = line[2:9].strip()
+            crs = tiploc_crs.get(tip, tip[:3].upper() if len(tip) >= 3 else None)
+            dep = fmt_time(line[15:19])
+            if crs:
+                current['stops'].append({
+                    'crs': crs, 'name': tiploc_name.get(tip, crs),
+                    'dep': dep, 'arr': None,
+                })
+
+        elif rec == 'LI' and current:  # Location Intermediate
+            tip = line[2:9].strip()
+            crs = tiploc_crs.get(tip, tip[:3].upper() if len(tip) >= 3 else None)
+            arr = fmt_time(line[10:14])
+            dep = fmt_time(line[15:19]) or fmt_time(line[20:24])  # dep or pass
+            # Only include if it's a public calling point (arr or dep, not just pass)
+            pub_arr = line[25:29].strip()
+            pub_dep = line[29:33].strip()
+            if crs and (pub_arr or pub_dep):
+                current['stops'].append({
+                    'crs': crs, 'name': tiploc_name.get(tip, crs),
+                    'dep': fmt_time(pub_dep) or dep,
+                    'arr': fmt_time(pub_arr) or arr,
+                })
+
+        elif rec == 'LT' and current:  # Location Terminus
+            tip = line[2:9].strip()
+            crs = tiploc_crs.get(tip, tip[:3].upper() if len(tip) >= 3 else None)
+            arr = fmt_time(line[10:14])
+            if crs:
+                current['stops'].append({
+                    'crs': crs, 'name': tiploc_name.get(tip, crs),
+                    'dep': None, 'arr': arr,
+                })
+            flush(current, date_range, output, seen)
+            current = None
+
+        if line_count % 500000 == 0:
+            print(f"  {line_count:,} lines, {len(output):,} route-date pairs...")
+
+flush(current, date_range, output, seen)
+print(f"Parsed {line_count:,} CIF lines")
+
+# ── STEP 6: WRITE OUTPUT ─────────────────────────────────────────────────────
 for key in output:
-    output[key].sort(key=lambda x: x.get("std") or "")
+    output[key].sort(key=lambda x: x.get('std') or '')
 
 result = {
-    "generated":  today.isoformat(),
-    "days_ahead": DAYS_AHEAD,
-    "routes":     dict(output),
+    'generated':  today.isoformat(),
+    'days_ahead': DAYS_AHEAD,
+    'routes':     dict(output),
 }
 
-with open("timetable.json", "w") as f:
-    json.dump(result, f, separators=(",", ":"))
+with open('timetable.json', 'w') as f:
+    json.dump(result, f, separators=(',', ':'))
 
 total = sum(len(v) for v in output.values())
-size  = os.path.getsize("timetable.json") / (1024 * 1024)
-print(f"\nDone.")
-print(f"  {processed:,} schedules processed, {skipped:,} skipped")
-print(f"  {len(output):,} route-date pairs, {total:,} total services")
-print(f"  timetable.json: {size:.1f} MB")
+size  = os.path.getsize('timetable.json') / 1024
+print(f"\nDone. {len(output):,} route-date pairs, {total:,} services. {size:.0f} KB")
