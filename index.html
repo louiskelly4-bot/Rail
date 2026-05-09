@@ -99,11 +99,17 @@ header{padding:22px 24px 0;flex-shrink:0;}
 .results-section::-webkit-scrollbar{display:none;}
 
 /* STATES */
-.loading-state{display:none;padding:44px 0;text-align:center;}
+.loading-state{display:none;padding:8px 0;}
 .loading-state.show{display:block;}
-.spinner{width:40px;height:40px;border-radius:50%;border:2.5px solid var(--rule);border-top-color:var(--accent);animation:spin 0.85s linear infinite;margin:0 auto 12px;}
+.loading-lbl{font-size:12px;color:var(--muted);font-weight:500;text-align:center;margin-bottom:12px;}
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.skeleton-card{background:var(--paper);border:1.5px solid var(--rule);border-radius:16px;padding:18px 16px;margin-bottom:10px;}
+.skel{border-radius:6px;background:linear-gradient(90deg,var(--rule) 25%,var(--warm) 50%,var(--rule) 75%);background-size:400px 100%;animation:shimmer 1.3s ease-in-out infinite;}
+.skel-time{height:30px;width:48%;margin-bottom:10px;}
+.skel-info{height:13px;width:60%;margin-bottom:8px;}
+.skel-info.short{width:38%;}
+.skel-foot{height:11px;width:50%;margin-top:6px;}
 @keyframes spin{to{transform:rotate(360deg);}}
-.loading-lbl{font-size:12px;color:var(--muted);font-weight:500;}
 .empty-state{padding:48px 0;text-align:center;}
 .empty-ico{font-family:var(--serif);font-size:48px;font-weight:900;font-style:italic;color:var(--rule);line-height:1;margin-bottom:10px;}
 .empty-ttl{font-size:16px;font-weight:600;color:var(--ink2);margin-bottom:4px;}
@@ -216,11 +222,12 @@ header{padding:22px 24px 0;flex-shrink:0;}
     <div class="header-row">
       <div class="wordmark" onclick="location.reload()" style="cursor:pointer;" title="Reload">
         <span style="font-size:28px;vertical-align:middle;margin-right:4px;line-height:1;">🚂</span>Tr<em>ackr</em>
-        <div style="font-family:var(--sans);font-size:9px;font-weight:500;letter-spacing:0.5px;color:var(--muted);margin-top:1px;padding-left:2px;" id="versionLbl"></div>
       </div>
       <div class="header-right">
         <button class="hdr-btn" id="favsBtn"><span class="s">★</span> Favourites</button>
         <div class="live-pill"><div class="live-dot"></div>Live</div>
+        <div id="versionLbl" style="font-family:var(--sans);font-size:9px;color:var(--muted);letter-spacing:0.3px;"></div>
+        <a href="https://logos.apistemic.com" target="_blank" rel="noopener" style="font-family:var(--sans);font-size:8px;color:var(--rule);text-decoration:none;letter-spacing:0.2px;">logos by apistemic</a>
       </div>
     </div>
     <div class="header-rule"></div>
@@ -289,8 +296,10 @@ header{padding:22px 24px 0;flex-shrink:0;}
       <div class="empty-sub">Enter two stations to see live departures</div>
     </div>
     <div class="loading-state" id="loadingState">
-      <div class="spinner"></div>
       <div class="loading-lbl" id="loadingLbl">Fetching live trains…</div>
+      <div class="skeleton-card"><div class="skel skel-time"></div><div class="skel skel-info"></div><div class="skel skel-info short"></div><div class="skel skel-foot"></div></div>
+      <div class="skeleton-card"><div class="skel skel-time"></div><div class="skel skel-info"></div><div class="skel skel-info short"></div><div class="skel skel-foot"></div></div>
+      <div class="skeleton-card"><div class="skel skel-time"></div><div class="skel skel-info"></div><div class="skel skel-info short"></div><div class="skel skel-foot"></div></div>
     </div>
     <div id="resultsList"></div>
   </div>
@@ -333,7 +342,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 <script>
 // App version — increment: MAJOR.MINOR.PATCH
 // MAJOR: breaking changes, MINOR: new features, PATCH: bug fixes
-const APP_VERSION = '1.3.5';
+const APP_VERSION = '1.3.8';
 const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
 const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
 
@@ -1181,30 +1190,43 @@ async function fetchTrains(offset, mode) {
       if (added === 0) break;
     }
 
-    // If still nothing — no trains tonight — roll over to tomorrow morning.
-    // Calculate offset to next 05:00 and search forward from there.
+    // If still nothing — no trains in the live window — fall back to timetable.json
+    // for tomorrow's services. The Darwin API cannot fetch beyond ~2hrs ahead.
     if (allResults.length === 0) {
-      const now = new Date();
-      const tomorrow5am = new Date(now);
-      tomorrow5am.setDate(now.getDate() + 1);
-      tomorrow5am.setHours(5, 0, 0, 0);
-      const rolloverOffset = Math.round((tomorrow5am - now) / 60000);
+      try {
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        const dateStr = tomorrow.toISOString().slice(0, 10);
+        const origins = curFromCodes.length > 0 ? curFromCodes : [curFc];
+        const dests   = curToCodes.length > 0 ? curToCodes : [curTc];
 
-      // Fetch two windows from tomorrow morning in parallel
-      const [r0, r1] = await Promise.all([
-        fetchWindow(rolloverOffset).catch(() => []),
-        fetchWindow(rolloverOffset + 120).catch(() => []),
-      ]);
-      addResults(r0);
-      addResults(r1);
-
-      // Keep going through tomorrow if needed (sparse routes)
-      for (let w = 2; w < 8 && allResults.length < BATCH; w++) {
-        const off = rolloverOffset + w * 120;
-        let results = [];
-        try { results = await fetchWindow(off); } catch(e) { break; }
-        const added = addResults(results);
-        if (added === 0) break;
+        for (const fc of origins) {
+          for (const tc of dests) {
+            const tt = await fetchTimetable(fc, tc, dateStr, '00:00').catch(() => []);
+            for (const s of tt) {
+              const key = s.serviceID || (s.std + '_' + (s.operator||''));
+              if (!seen.has(key)) { seen.add(key); allResults.push(s); }
+            }
+          }
+        }
+        // Also try day after tomorrow if still not enough
+        if (allResults.length < BATCH) {
+          const dayAfter = new Date(now);
+          dayAfter.setDate(now.getDate() + 2);
+          const dateStr2 = dayAfter.toISOString().slice(0, 10);
+          for (const fc of origins) {
+            for (const tc of dests) {
+              const tt = await fetchTimetable(fc, tc, dateStr2, '00:00').catch(() => []);
+              for (const s of tt) {
+                const key = s.serviceID || (s.std + '_' + (s.operator||''));
+                if (!seen.has(key)) { seen.add(key); allResults.push(s); }
+              }
+            }
+          }
+        }
+      } catch(e) {
+        // timetable.json not available — nothing we can do
       }
     }
 
@@ -1357,49 +1379,92 @@ async function fetchTrains(offset, mode) {
 
 // ════════════════════════════════════════
 // OPERATOR BRANDING
+// Logos served by Apistemic (free, no API key) — https://logos.apistemic.com
 // ════════════════════════════════════════
-// Inline SVG operator logos — no external requests, always available, accurate brand colours
-const OPERATOR_LOGOS_SVG = {
-  'TP': `<svg viewBox="0 0 120 32" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="32" rx="4" fill="#0071BB"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">TransPennine</text></svg>`,
-  'NT': `<svg viewBox="0 0 90 32" xmlns="http://www.w3.org/2000/svg"><rect width="90" height="32" rx="4" fill="#2C2864"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">Northern</text></svg>`,
-  'GW': `<svg viewBox="0 0 60 32" xmlns="http://www.w3.org/2000/svg"><rect width="60" height="32" rx="4" fill="#0A493E"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#FFD700">GWR</text></svg>`,
-  'VT': `<svg viewBox="0 0 70 32" xmlns="http://www.w3.org/2000/svg"><rect width="70" height="32" rx="4" fill="#1D1D1B"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="#FFCC00">Avanti</text></svg>`,
-  'LN': `<svg viewBox="0 0 62 32" xmlns="http://www.w3.org/2000/svg"><rect width="62" height="32" rx="4" fill="#E21836"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">LNER</text></svg>`,
-  'GR': `<svg viewBox="0 0 62 32" xmlns="http://www.w3.org/2000/svg"><rect width="62" height="32" rx="4" fill="#E21836"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">LNER</text></svg>`,
-  'XC': `<svg viewBox="0 0 110 32" xmlns="http://www.w3.org/2000/svg"><rect width="110" height="32" rx="4" fill="#660033"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">CrossCountry</text></svg>`,
-  'EM': `<svg viewBox="0 0 55 32" xmlns="http://www.w3.org/2000/svg"><rect width="55" height="32" rx="4" fill="#452461"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">EMR</text></svg>`,
-  'GC': `<svg viewBox="0 0 110 32" xmlns="http://www.w3.org/2000/svg"><rect width="110" height="32" rx="4" fill="#231F20"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#F4A60B">Grand Central</text></svg>`,
-  'HT': `<svg viewBox="0 0 90 32" xmlns="http://www.w3.org/2000/svg"><rect width="90" height="32" rx="4" fill="#FF6600"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">Hull Trains</text></svg>`,
-  'LD': `<svg viewBox="0 0 58 32" xmlns="http://www.w3.org/2000/svg"><rect width="58" height="32" rx="4" fill="#003E96"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">Lumo</text></svg>`,
-  'HX': `<svg viewBox="0 0 80 32" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="32" rx="4" fill="#7B2082"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Heathrow Ex</text></svg>`,
-  'GN': `<svg viewBox="0 0 80 32" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="32" rx="4" fill="#00A0E2"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Gt Northern</text></svg>`,
-  'TL': `<svg viewBox="0 0 90 32" xmlns="http://www.w3.org/2000/svg"><rect width="90" height="32" rx="4" fill="#00A0E2"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="white">Thameslink</text></svg>`,
-  'SN': `<svg viewBox="0 0 78 32" xmlns="http://www.w3.org/2000/svg"><rect width="78" height="32" rx="4" fill="#007943"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">Southern</text></svg>`,
-  'SE': `<svg viewBox="0 0 96 32" xmlns="http://www.w3.org/2000/svg"><rect width="96" height="32" rx="4" fill="#00AFEF"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Southeastern</text></svg>`,
-  'SW': `<svg viewBox="0 0 46 32" xmlns="http://www.w3.org/2000/svg"><rect width="46" height="32" rx="4" fill="#E4222B"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">SWR</text></svg>`,
-  'GA': `<svg viewBox="0 0 100 32" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="32" rx="4" fill="#D70428"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Greater Anglia</text></svg>`,
-  'LE': `<svg viewBox="0 0 100 32" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="32" rx="4" fill="#D70428"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Greater Anglia</text></svg>`,
-  'CC': `<svg viewBox="0 0 40 32" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="32" rx="4" fill="#B2175B"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">c2c</text></svg>`,
-  'LO': `<svg viewBox="0 0 96 32" xmlns="http://www.w3.org/2000/svg"><rect width="96" height="32" rx="4" fill="#E05206"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Overground</text></svg>`,
-  'LM': `<svg viewBox="0 0 90 32" xmlns="http://www.w3.org/2000/svg"><rect width="90" height="32" rx="4" fill="#3D5DA7"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">West Midlands</text></svg>`,
-  'WM': `<svg viewBox="0 0 90 32" xmlns="http://www.w3.org/2000/svg"><rect width="90" height="32" rx="4" fill="#3D5DA7"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">West Midlands</text></svg>`,
-  'CH': `<svg viewBox="0 0 72 32" xmlns="http://www.w3.org/2000/svg"><rect width="72" height="32" rx="4" fill="#00A0DC"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="white">Chiltern</text></svg>`,
-  'ME': `<svg viewBox="0 0 80 32" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="32" rx="4" fill="#F4B11B"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#231F20">Merseyrail</text></svg>`,
-  'SR': `<svg viewBox="0 0 70 32" xmlns="http://www.w3.org/2000/svg"><rect width="70" height="32" rx="4" fill="#0052A5"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">ScotRail</text></svg>`,
-  'XR': `<svg viewBox="0 0 88 32" xmlns="http://www.w3.org/2000/svg"><rect width="88" height="32" rx="4" fill="#7156A5"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Elizabeth ⬤</text></svg>`,
-  'TW': `<svg viewBox="0 0 42 32" xmlns="http://www.w3.org/2000/svg"><rect width="42" height="32" rx="4" fill="#E4002B"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">TfW</text></svg>`,
-  'AW': `<svg viewBox="0 0 42 32" xmlns="http://www.w3.org/2000/svg"><rect width="42" height="32" rx="4" fill="#E4002B"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="white">TfW</text></svg>`,
-  'CS': `<svg viewBox="0 0 60 32" xmlns="http://www.w3.org/2000/svg"><rect width="60" height="32" rx="4" fill="#00A6C8"/><text x="6" y="22" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white">Cal. Sl.</text></svg>`,
+const OPERATOR_DOMAINS = {
+  'TP': 'tpexpress.co.uk',
+  'NT': 'northernrailway.co.uk',
+  'GW': 'gwr.com',
+  'VT': 'avantiwestcoast.co.uk',
+  'LN': 'lner.co.uk',
+  'GR': 'lner.co.uk',
+  'XC': 'crosscountrytrains.co.uk',
+  'EM': 'eastmidlandsrailway.co.uk',
+  'GC': 'grandcentralrail.com',
+  'HT': 'hulltrains.co.uk',
+  'LD': 'lumo.co.uk',
+  'HX': 'heathrowexpress.com',
+  'GN': 'greatnorthernrail.com',
+  'TL': 'thameslinkrailway.com',
+  'SN': 'southernrailway.com',
+  'SE': 'southeasternrailway.co.uk',
+  'SW': 'southwesternrailway.com',
+  'SJ': 'southwesternrailway.com',
+  'GA': 'greateranglia.co.uk',
+  'LE': 'greateranglia.co.uk',
+  'CC': 'c2c-online.co.uk',
+  'LO': 'londonoverground.co.uk',
+  'LM': 'westmidlandsrailway.co.uk',
+  'WM': 'westmidlandsrailway.co.uk',
+  'CH': 'chilternrailways.co.uk',
+  'ME': 'merseyrail.org',
+  'SR': 'scotrail.co.uk',
+  'XR': 'elizabethline.tfl.gov.uk',
+  'TW': 'tfwrail.wales',
+  'AW': 'tfwrail.wales',
+  'CS': 'sleeper.scot',
+};
+
+const OPERATOR_BRAND = {
+  'TP': { bg: '#0071BB', fg: '#fff', name: 'TransPennine Express' },
+  'NT': { bg: '#2C2864', fg: '#fff', name: 'Northern' },
+  'GW': { bg: '#0A493E', fg: '#fff', name: 'GWR' },
+  'VT': { bg: '#1D1D1B', fg: '#FFCC00', name: 'Avanti' },
+  'LN': { bg: '#E21836', fg: '#fff', name: 'LNER' },
+  'GR': { bg: '#E21836', fg: '#fff', name: 'LNER' },
+  'XC': { bg: '#660033', fg: '#fff', name: 'CrossCountry' },
+  'EM': { bg: '#452461', fg: '#fff', name: 'East Midlands' },
+  'GC': { bg: '#231F20', fg: '#F4A60B', name: 'Grand Central' },
+  'HT': { bg: '#FF6600', fg: '#fff', name: 'Hull Trains' },
+  'LD': { bg: '#003E96', fg: '#fff', name: 'Lumo' },
+  'HX': { bg: '#7B2082', fg: '#fff', name: 'Heathrow Express' },
+  'GN': { bg: '#00A0E2', fg: '#fff', name: 'Great Northern' },
+  'TL': { bg: '#00A0E2', fg: '#fff', name: 'Thameslink' },
+  'SN': { bg: '#007943', fg: '#fff', name: 'Southern' },
+  'SE': { bg: '#00AFEF', fg: '#fff', name: 'Southeastern' },
+  'SW': { bg: '#E4222B', fg: '#fff', name: 'South Western' },
+  'SJ': { bg: '#E4222B', fg: '#fff', name: 'South Western' },
+  'GA': { bg: '#D70428', fg: '#fff', name: 'Greater Anglia' },
+  'LE': { bg: '#D70428', fg: '#fff', name: 'Greater Anglia' },
+  'CC': { bg: '#B2175B', fg: '#fff', name: 'c2c' },
+  'LO': { bg: '#E05206', fg: '#fff', name: 'Overground' },
+  'LM': { bg: '#3D5DA7', fg: '#fff', name: 'West Midlands' },
+  'WM': { bg: '#3D5DA7', fg: '#fff', name: 'West Midlands' },
+  'CH': { bg: '#00A0DC', fg: '#fff', name: 'Chiltern' },
+  'ME': { bg: '#F4B11B', fg: '#231F20', name: 'Merseyrail' },
+  'SR': { bg: '#0052A5', fg: '#fff', name: 'ScotRail' },
+  'XR': { bg: '#7156A5', fg: '#fff', name: 'Elizabeth line' },
+  'TW': { bg: '#E4002B', fg: '#fff', name: 'Transport for Wales' },
+  'AW': { bg: '#E4002B', fg: '#fff', name: 'Transport for Wales' },
+  'CS': { bg: '#00A6C8', fg: '#fff', name: 'Caledonian Sleeper' },
 };
 
 function operatorBadge(operatorCode, operatorName) {
-  const svg = OPERATOR_LOGOS_SVG[operatorCode];
-  if (svg) {
-    return `<span style="display:inline-block;vertical-align:middle;height:20px;line-height:0;">${svg.replace('<svg ', '<svg height="20" ').replace(/width="\d+"/, '')}</span>`;
+  const domain = OPERATOR_DOMAINS[operatorCode];
+  const brand  = OPERATOR_BRAND[operatorCode];
+  const bg     = brand ? brand.bg : '#6b7a99';
+  const fg     = brand ? brand.fg : '#fff';
+  const name   = brand ? brand.name : (operatorName || operatorCode || '?');
+
+  if (domain) {
+    return `<img
+      src="https://logos-api.apistemic.com/domain:${domain}?fallback=404"
+      alt="${name}"
+      loading="lazy"
+      style="height:20px;max-width:72px;object-fit:contain;vertical-align:middle;border-radius:3px;"
+      onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${name}',style:'display:inline-block;background:${bg};color:${fg};font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:var(--sans);white-space:nowrap;vertical-align:middle;'}))">`;
   }
-  // Fallback: grey pill badge for unknown operators
-  const label = (operatorName || operatorCode || '?').split(' ').slice(0,2).join(' ');
-  return `<span style="display:inline-block;background:#6b7a99;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:var(--sans);white-space:nowrap;vertical-align:middle;">${label}</span>`;
+  return `<span style="display:inline-block;background:${bg};color:${fg};font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:var(--sans);white-space:nowrap;vertical-align:middle;">${name}</span>`;
 }
 function makeCard(svc) {
   const dep = svc.std || '--:--';
