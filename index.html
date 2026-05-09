@@ -212,7 +212,9 @@ header{padding:22px 24px 0;flex-shrink:0;}
 .fav-row-sub{font-size:11px;color:var(--muted);margin-top:1px;}
 .fav-row-del{font-size:17px;color:var(--muted);cursor:pointer;padding:5px;flex-shrink:0;}
 .pn-empty{padding:28px 0;text-align:center;color:var(--muted);font-size:13px;line-height:1.6;}
-.pn-close{width:calc(100% - 44px);margin:14px 22px 32px;padding:13px;background:var(--warm);border:1.5px solid var(--rule);border-radius:12px;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer;}
+.date-divider{display:flex;align-items:center;gap:10px;margin:14px 0 8px;color:var(--muted);}
+.date-divider span{font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;white-space:nowrap;color:var(--ink2);}
+.date-divider::before,.date-divider::after{content:'';flex:1;height:1px;background:var(--rule);}
 
 </style>
 </head>
@@ -227,7 +229,6 @@ header{padding:22px 24px 0;flex-shrink:0;}
         <button class="hdr-btn" id="favsBtn"><span class="s">★</span> Favourites</button>
         <div class="live-pill"><div class="live-dot"></div>Live</div>
         <div id="versionLbl" style="font-family:var(--sans);font-size:9px;color:var(--muted);letter-spacing:0.3px;"></div>
-        <a href="https://logos.apistemic.com" target="_blank" rel="noopener" style="font-family:var(--sans);font-size:8px;color:var(--rule);text-decoration:none;letter-spacing:0.2px;">logos by apistemic</a>
       </div>
     </div>
     <div class="header-rule"></div>
@@ -342,7 +343,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 <script>
 // App version — increment: MAJOR.MINOR.PATCH
 // MAJOR: breaking changes, MINOR: new features, PATCH: bug fixes
-const APP_VERSION = '1.3.8';
+const APP_VERSION = '1.4.0';
 const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
 const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
 
@@ -1324,8 +1325,31 @@ async function fetchTrains(offset, mode) {
       list.appendChild(hdr);
     }
 
-    if (mode === 'later') {
-      svcs.forEach((s,i) => { loadedSvcs.push(s); const c=makeCard(s); c.style.animationDelay=`${i*0.04}s`; list.appendChild(c); });
+    // Helper: insert a "Tomorrow" divider between day boundaries
+    function makeDivider(label) {
+      const d = document.createElement('div');
+      d.className = 'date-divider';
+      d.innerHTML = `<span>${label}</span>`;
+      return d;
+    }
+
+    if (mode === 'later' || mode === 'replace') {
+      const targetList = mode === 'replace' ? list : list;
+      let lastMins = mode === 'replace' ? -1 : (lastShownStd ? toMins(lastShownStd) : -1);
+      let shownTomorrow = list.querySelector('.date-divider') !== null;
+
+      svcs.forEach((s, i) => {
+        const sm = toMins(s.std);
+        // Detect midnight rollover — insert "Tomorrow" divider once
+        if (!shownTomorrow && lastMins > 900 && sm >= 0 && sm < 300) {
+          shownTomorrow = true;
+          list.appendChild(makeDivider('Tomorrow'));
+        }
+        loadedSvcs.push(s);
+        const c = makeCard(s); c.style.animationDelay = `${i*0.04}s`;
+        list.appendChild(c);
+        lastMins = sm;
+      });
     } else if (mode === 'earlier') {
       const hdr = list.querySelector('.res-hdr');
       svcs.slice().reverse().forEach((s,i) => {
@@ -1333,8 +1357,6 @@ async function fetchTrains(offset, mode) {
         const c = makeCard(s); c.style.animationDelay = `${i*0.04}s`;
         if (hdr) hdr.after(c); else list.prepend(c);
       });
-    } else {
-      svcs.forEach((s,i) => { loadedSvcs.push(s); const c=makeCard(s); c.style.animationDelay=`${i*0.04}s`; list.appendChild(c); });
     }
 
     // Update lastShownStd from the last rendered card
@@ -1379,40 +1401,30 @@ async function fetchTrains(offset, mode) {
 
 // ════════════════════════════════════════
 // OPERATOR BRANDING
-// Logos served by Apistemic (free, no API key) — https://logos.apistemic.com
+// Logos from operator apple-touch-icons — reliable, no third-party CDN needed
 // ════════════════════════════════════════
-const OPERATOR_DOMAINS = {
-  'TP': 'tpexpress.co.uk',
-  'NT': 'northernrailway.co.uk',
-  'GW': 'gwr.com',
-  'VT': 'avantiwestcoast.co.uk',
-  'LN': 'lner.co.uk',
-  'GR': 'lner.co.uk',
-  'XC': 'crosscountrytrains.co.uk',
-  'EM': 'eastmidlandsrailway.co.uk',
-  'GC': 'grandcentralrail.com',
-  'HT': 'hulltrains.co.uk',
-  'LD': 'lumo.co.uk',
-  'HX': 'heathrowexpress.com',
-  'GN': 'greatnorthernrail.com',
-  'TL': 'thameslinkrailway.com',
-  'SN': 'southernrailway.com',
-  'SE': 'southeasternrailway.co.uk',
-  'SW': 'southwesternrailway.com',
-  'SJ': 'southwesternrailway.com',
-  'GA': 'greateranglia.co.uk',
-  'LE': 'greateranglia.co.uk',
-  'CC': 'c2c-online.co.uk',
-  'LO': 'londonoverground.co.uk',
-  'LM': 'westmidlandsrailway.co.uk',
-  'WM': 'westmidlandsrailway.co.uk',
-  'CH': 'chilternrailways.co.uk',
-  'ME': 'merseyrail.org',
-  'SR': 'scotrail.co.uk',
-  'XR': 'elizabethline.tfl.gov.uk',
-  'TW': 'tfwrail.wales',
-  'AW': 'tfwrail.wales',
-  'CS': 'sleeper.scot',
+// Direct favicon/logo URLs from operator websites — more reliable than third-party CDNs
+const OPERATOR_LOGO_URLS = {
+  'TP': 'https://www.tpexpress.co.uk/apple-touch-icon.png',
+  'NT': 'https://www.northernrailway.co.uk/apple-touch-icon.png',
+  'GW': 'https://www.gwr.com/apple-touch-icon.png',
+  'VT': 'https://www.avantiwestcoast.co.uk/apple-touch-icon.png',
+  'LN': 'https://www.lner.co.uk/apple-touch-icon.png',
+  'GR': 'https://www.lner.co.uk/apple-touch-icon.png',
+  'XC': 'https://www.crosscountrytrains.co.uk/apple-touch-icon.png',
+  'EM': 'https://www.eastmidlandsrailway.co.uk/apple-touch-icon.png',
+  'SR': 'https://www.scotrail.co.uk/apple-touch-icon.png',
+  'SW': 'https://www.southwesternrailway.com/apple-touch-icon.png',
+  'SN': 'https://www.southernrailway.com/apple-touch-icon.png',
+  'SE': 'https://www.southeasternrailway.co.uk/apple-touch-icon.png',
+  'GA': 'https://www.greateranglia.co.uk/apple-touch-icon.png',
+  'ME': 'https://www.merseyrail.org/apple-touch-icon.png',
+  'CH': 'https://www.chilternrailways.co.uk/apple-touch-icon.png',
+  'HX': 'https://www.heathrowexpress.com/apple-touch-icon.png',
+  'TW': 'https://www.tfwrail.wales/apple-touch-icon.png',
+  'AW': 'https://www.tfwrail.wales/apple-touch-icon.png',
+  'LD': 'https://www.lumo.co.uk/apple-touch-icon.png',
+  'HT': 'https://www.hulltrains.co.uk/apple-touch-icon.png',
 };
 
 const OPERATOR_BRAND = {
@@ -1450,21 +1462,22 @@ const OPERATOR_BRAND = {
 };
 
 function operatorBadge(operatorCode, operatorName) {
-  const domain = OPERATOR_DOMAINS[operatorCode];
-  const brand  = OPERATOR_BRAND[operatorCode];
-  const bg     = brand ? brand.bg : '#6b7a99';
-  const fg     = brand ? brand.fg : '#fff';
-  const name   = brand ? brand.name : (operatorName || operatorCode || '?');
+  const logoUrl = OPERATOR_LOGO_URLS[operatorCode];
+  const brand   = OPERATOR_BRAND[operatorCode];
+  const bg      = brand ? brand.bg : '#6b7a99';
+  const fg      = brand ? brand.fg : '#fff';
+  const name    = brand ? brand.name : (operatorName || operatorCode || '?');
+  const pill    = `<span style="display:inline-block;background:${bg};color:${fg};font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:sans-serif;white-space:nowrap;vertical-align:middle;">${name}</span>`;
 
-  if (domain) {
-    return `<img
-      src="https://logos-api.apistemic.com/domain:${domain}?fallback=404"
-      alt="${name}"
-      loading="lazy"
-      style="height:20px;max-width:72px;object-fit:contain;vertical-align:middle;border-radius:3px;"
-      onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${name}',style:'display:inline-block;background:${bg};color:${fg};font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:var(--sans);white-space:nowrap;vertical-align:middle;'}))">`;
+  if (logoUrl) {
+    const id = `op${operatorCode}${Math.random().toString(36).slice(2,5)}`;
+    return `<span id="${id}" style="display:inline-block;vertical-align:middle;height:22px;line-height:22px;">` +
+      `<img src="${logoUrl}" alt="${name}" ` +
+      `style="height:22px;width:22px;object-fit:contain;vertical-align:middle;border-radius:4px;" ` +
+      `onerror="document.getElementById('${id}').outerHTML='${pill.replace(/'/g, "\\'")}'"` +
+      `></span>`;
   }
-  return `<span style="display:inline-block;background:${bg};color:${fg};font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:var(--sans);white-space:nowrap;vertical-align:middle;">${name}</span>`;
+  return pill;
 }
 function makeCard(svc) {
   const dep = svc.std || '--:--';
