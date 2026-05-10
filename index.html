@@ -353,7 +353,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 <script>
 // App version — increment: MAJOR.MINOR.PATCH
 // MAJOR: breaking changes, MINOR: new features, PATCH: bug fixes
-const APP_VERSION = '1.4.7';
+const APP_VERSION = '1.4.8';
 const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
 const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
 
@@ -1342,22 +1342,19 @@ async function fetchTrains(offset, mode) {
     // startDate should always be today or a known date at midnight.
     function tagDates(services) {
       const now = new Date();
+      const today = new Date(now); today.setHours(0,0,0,0);
+      const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
       const nowM = now.getHours() * 60 + now.getMinutes();
-      let currentDate = new Date(now); currentDate.setHours(0,0,0,0);
-      let lastMins = nowM; // anchor to current time so trains before now aren't "yesterday"
 
       return services.map(s => {
-        // Timetable entries already have a trusted date
-        if (s._date && s._isTimetable) return s;
+        // Timetable entries already have a trusted _date
+        if (s._isTimetable && s._date) return s;
         const sm = toMins(s.std);
-        if (sm < 0) return { ...s, _date: currentDate.toISOString().slice(0,10) };
-        // Roll forward if time went backwards by more than 1 hour (midnight crossing)
-        if (sm < lastMins - 60) {
-          currentDate = new Date(currentDate);
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-        lastMins = sm;
-        return { ...s, _date: currentDate.toISOString().slice(0,10) };
+        if (sm < 0) return { ...s, _date: today.toISOString().slice(0,10) };
+        // If departure time is before now, this train must be tomorrow
+        // (API only returns upcoming trains, so past times = next day)
+        const date = sm >= nowM ? today : tomorrow;
+        return { ...s, _date: date.toISOString().slice(0,10) };
       });
     }
 
