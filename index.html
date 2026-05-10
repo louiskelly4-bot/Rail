@@ -154,12 +154,11 @@ header{padding:22px 24px 0;flex-shrink:0;}
 .fav-btn:active{transform:scale(1.35);}
 
 /* LOAD MORE / EARLIER */
-.page-btn{width:100%;padding:12px;background:var(--paper);border:1.5px solid var(--rule);border-radius:13px;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all 0.15s;margin-bottom:9px;}
+.page-btn{width:100%;padding:12px;background:var(--paper);border:1.5px solid var(--rule);border-radius:13px;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer;display:none;align-items:center;justify-content:center;gap:7px;transition:all 0.15s;margin-bottom:9px;}
+.page-btn.show{display:flex;}
 .page-btn:active,.page-btn:hover{background:var(--warm);}
 .page-btn.busy{opacity:0.55;pointer-events:none;}
-.page-btn.earlier{margin-bottom:0;margin-top:0;}
-.paging-bar{position:sticky;bottom:0;left:0;right:0;background:linear-gradient(to top, var(--cream) 70%, transparent);padding:10px 24px 14px;display:none;gap:8px;z-index:10;}
-.paging-bar.show{display:flex;}
+#btnLater{margin-top:4px;margin-bottom:0;}
 
 /* BOTTOM SHEET */
 .overlay{display:none;position:fixed;inset:0;background:rgba(26,18,8,0.45);z-index:500;align-items:flex-end;backdrop-filter:blur(3px);}
@@ -293,10 +292,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
   <div class="divider"></div>
 
   <div class="results-section" id="resultsSection">
-    <div id="pagingBar" class="paging-bar">
-      <button class="page-btn" id="btnEarlier" style="display:none;">↑ Earlier</button>
-      <button class="page-btn" id="btnLater" style="display:none;">↓ Later</button>
-    </div>
+    <button class="page-btn" id="btnEarlier" style="display:none;">↑ Earlier trains</button>
     <div class="empty-state" id="emptyState">
       <div class="empty-ico">⊙</div>
       <div class="empty-ttl">Where to?</div>
@@ -309,6 +305,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
       <div class="skeleton-card"><div class="skel skel-time"></div><div class="skel skel-info"></div><div class="skel skel-info short"></div><div class="skel skel-foot"></div></div>
     </div>
     <div id="resultsList"></div>
+    <button class="page-btn" id="btnLater" style="display:none;">↓ Later trains</button>
   </div>
 </div>
 
@@ -349,7 +346,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 <script>
 // App version — increment: MAJOR.MINOR.PATCH
 // MAJOR: breaking changes, MINOR: new features, PATCH: bug fixes
-const APP_VERSION = '1.4.1';
+const APP_VERSION = '1.4.2';
 const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
 const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
 
@@ -1107,6 +1104,9 @@ function minsToOffset(targetMins) {
 
 let lastShownStd = null;
 
+const PAGE_SIZE = 5;   // trains loaded per press
+const MAX_SHOWN = 10;  // max trains visible at once
+
 async function fetchTrains(offset, mode) {
   const empty   = document.getElementById('emptyState');
   const loading = document.getElementById('loadingState');
@@ -1114,6 +1114,8 @@ async function fetchTrains(offset, mode) {
   const list    = document.getElementById('resultsList');
 
   empty.style.display = 'none';
+
+  const BATCH = PAGE_SIZE; // how many trains to fetch per request
 
   if (mode === 'replace') {
     loading.classList.add('show'); list.innerHTML = ''; loadedSvcs = []; lastShownStd = null;
@@ -1125,23 +1127,6 @@ async function fetchTrains(offset, mode) {
     if (btn) { btn.classList.add('busy'); btn.textContent = 'Loading…'; }
   }
 
-
-  // Fetch with destination filter (fast, reliable, server-side filtering)
-  async function fetchWindow(off) {
-    const clamped = Math.max(-120, Math.min(119, off));
-    const url = apiUrl(`/departures/${curFc}/to/${curTc}/20`, {
-      expand: 'true',
-      timeOffset: clamped,
-      timeWindow: 120
-    });
-    const raw = await xhrGet(url);
-    return raw.trainServices || [];
-  }
-
-
-  const INITIAL_BATCH = 7;
-  const PAGE_BATCH = 3;
-  const BATCH = mode === 'replace' ? INITIAL_BATCH : PAGE_BATCH;
 
   // Fetch with destination filter. If multiple origin stations (city group),
   // searches all of them in parallel and merges results.
@@ -1337,67 +1322,104 @@ async function fetchTrains(offset, mode) {
       return d;
     }
 
-    if (mode === 'later' || mode === 'replace') {
-      const targetList = mode === 'replace' ? list : list;
-      let lastMins = mode === 'replace' ? -1 : (lastShownStd ? toMins(lastShownStd) : -1);
-      let shownTomorrow = list.querySelector('.date-divider') !== null;
-
-      svcs.forEach((s, i) => {
+    if (mode === 'replace') {
+      list.innerHTML = '';
+      loadedSvcs = [];
+      lastShownStd = null;
+      let lastMins = -1;
+      let shownTomorrow = false;
+      svcs.forEach(s => {
         const sm = toMins(s.std);
-        // Detect midnight rollover — insert "Tomorrow" divider once
         if (!shownTomorrow && lastMins > 900 && sm >= 0 && sm < 300) {
           shownTomorrow = true;
           list.appendChild(makeDivider('Tomorrow'));
         }
         loadedSvcs.push(s);
-        const c = makeCard(s); c.style.animationDelay = `${i*0.04}s`;
-        list.appendChild(c);
+        list.appendChild(makeCard(s));
         lastMins = sm;
       });
-    } else if (mode === 'earlier') {
-      const hdr = list.querySelector('.res-hdr');
-      svcs.slice().reverse().forEach((s,i) => {
-        loadedSvcs.unshift(s);
-        const c = makeCard(s); c.style.animationDelay = `${i*0.04}s`;
-        if (hdr) hdr.after(c); else list.prepend(c);
+
+    } else if (mode === 'later') {
+      // Add 5 at bottom, remove 5 from top if over MAX_SHOWN
+      let lastMins = loadedSvcs.length > 0 ? toMins(loadedSvcs[loadedSvcs.length-1].std) : -1;
+      let shownTomorrow = list.querySelector('.date-divider') !== null;
+      svcs.forEach(s => {
+        const sm = toMins(s.std);
+        if (!shownTomorrow && lastMins > 900 && sm >= 0 && sm < 300) {
+          shownTomorrow = true;
+          list.appendChild(makeDivider('Tomorrow'));
+        }
+        loadedSvcs.push(s);
+        list.appendChild(makeCard(s));
+        lastMins = sm;
       });
+      // Remove oldest cards from top if over MAX_SHOWN
+      while (loadedSvcs.length > MAX_SHOWN) {
+        loadedSvcs.shift();
+        // Remove first train-card (skip dividers)
+        const first = list.querySelector('.train-card');
+        if (first) {
+          // Also remove a preceding date-divider if it's now orphaned at top
+          const prev = first.previousElementSibling;
+          if (prev && prev.classList.contains('date-divider')) prev.remove();
+          first.remove();
+        }
+      }
+
+    } else if (mode === 'earlier') {
+      // Add 5 at top, remove 5 from bottom if over MAX_SHOWN
+      const newCards = [];
+      svcs.slice().reverse().forEach(s => {
+        loadedSvcs.unshift(s);
+        newCards.push(makeCard(s));
+      });
+      // Insert at top of list
+      newCards.forEach(c => list.prepend(c));
+      // Remove newest cards from bottom if over MAX_SHOWN
+      while (loadedSvcs.length > MAX_SHOWN) {
+        loadedSvcs.pop();
+        const cards = list.querySelectorAll('.train-card');
+        const last = cards[cards.length - 1];
+        if (last) {
+          const next = last.nextElementSibling;
+          if (next && next.classList.contains('date-divider')) next.remove();
+          last.remove();
+        }
+      }
     }
 
-    // Update lastShownStd from the last rendered card
+    // Update tracking
     const allCards = list.querySelectorAll('.train-card');
     if (allCards.length > 0) lastShownStd = allCards[allCards.length-1].dataset.std || null;
     const firstCardStd = allCards.length > 0 ? allCards[0].dataset.std : null;
 
-    // ── STICKY PAGING BUTTONS ──
-    const pagingBar = document.getElementById('pagingBar');
+    // ── BUTTONS ──
     const btnE = document.getElementById('btnEarlier');
     const btnL = document.getElementById('btnLater');
 
-    // Earlier button
     if (firstCardStd) {
-      btnE.style.display = 'flex';
-      btnE.textContent = '↑ Earlier';
+      btnE.classList.add('show');
+      btnE.classList.remove('busy');
       btnE.onclick = () => {
+        btnE.classList.add('busy');
         const startMins = (toMins(firstCardStd) - 240 + 1440) % 1440;
         fetchTrains(minsToOffset(startMins), 'earlier');
       };
     } else {
-      btnE.style.display = 'none';
+      btnE.classList.remove('show');
     }
 
-    // Later button
     if (lastShownStd) {
-      btnL.style.display = 'flex';
-      btnL.textContent = '↓ Later';
+      btnL.classList.add('show');
+      btnL.classList.remove('busy');
       btnL.onclick = () => {
+        btnL.classList.add('busy');
         const startMins = (toMins(lastShownStd) + 1 + 1440) % 1440;
         fetchTrains(minsToOffset(startMins), 'later');
       };
     } else {
-      btnL.style.display = 'none';
+      btnL.classList.remove('show');
     }
-
-    pagingBar.classList.toggle('show', !!(firstCardStd || lastShownStd));
 
   } catch(err) {
     loading.classList.remove('show');
