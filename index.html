@@ -158,6 +158,8 @@ header{padding:22px 24px 0;flex-shrink:0;}
 .page-btn:active,.page-btn:hover{background:var(--warm);}
 .page-btn.busy{opacity:0.55;pointer-events:none;}
 .page-btn.earlier{margin-bottom:0;margin-top:0;}
+.paging-bar{position:sticky;bottom:0;left:0;right:0;background:linear-gradient(to top, var(--cream) 70%, transparent);padding:10px 24px 14px;display:none;gap:8px;z-index:10;}
+.paging-bar.show{display:flex;}
 
 /* BOTTOM SHEET */
 .overlay{display:none;position:fixed;inset:0;background:rgba(26,18,8,0.45);z-index:500;align-items:flex-end;backdrop-filter:blur(3px);}
@@ -291,6 +293,10 @@ header{padding:22px 24px 0;flex-shrink:0;}
   <div class="divider"></div>
 
   <div class="results-section" id="resultsSection">
+    <div id="pagingBar" class="paging-bar">
+      <button class="page-btn" id="btnEarlier" style="display:none;">↑ Earlier</button>
+      <button class="page-btn" id="btnLater" style="display:none;">↓ Later</button>
+    </div>
     <div class="empty-state" id="emptyState">
       <div class="empty-ico">⊙</div>
       <div class="empty-ttl">Where to?</div>
@@ -343,7 +349,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 <script>
 // App version — increment: MAJOR.MINOR.PATCH
 // MAJOR: breaking changes, MINOR: new features, PATCH: bug fixes
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
 const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
 
@@ -1312,8 +1318,6 @@ async function fetchTrains(offset, mode) {
       }
     }
 
-    ['btnEarlier','btnLater'].forEach(id => { const b=document.getElementById(id); if(b)b.remove(); });
-
     if (mode === 'replace' && !svcs.length) {
       list.innerHTML = `<div class="err-box"><strong>No trains found</strong>No services from <em>${curFrom}</em> to <em>${curTo}</em> around this time.</div>`;
       return;
@@ -1362,36 +1366,38 @@ async function fetchTrains(offset, mode) {
     // Update lastShownStd from the last rendered card
     const allCards = list.querySelectorAll('.train-card');
     if (allCards.length > 0) lastShownStd = allCards[allCards.length-1].dataset.std || null;
-
-    // ── EARLIER button ──
     const firstCardStd = allCards.length > 0 ? allCards[0].dataset.std : null;
+
+    // ── STICKY PAGING BUTTONS ──
+    const pagingBar = document.getElementById('pagingBar');
+    const btnE = document.getElementById('btnEarlier');
+    const btnL = document.getElementById('btnLater');
+
+    // Earlier button
     if (firstCardStd) {
-      const capturedFirst = firstCardStd;
-      const btnE = document.createElement('button');
-      btnE.className = 'page-btn'; btnE.id = 'btnEarlier';
-      btnE.innerHTML = '↑ Earlier trains';
-      btnE.addEventListener('click', () => {
-        // Fetch starting 4 hours before the first visible train
-        const startMins = (toMins(capturedFirst) - 240 + 1440) % 1440;
+      btnE.style.display = 'flex';
+      btnE.textContent = '↑ Earlier';
+      btnE.onclick = () => {
+        const startMins = (toMins(firstCardStd) - 240 + 1440) % 1440;
         fetchTrains(minsToOffset(startMins), 'earlier');
-      });
-      const hdr2 = list.querySelector('.res-hdr');
-      if (hdr2) hdr2.before(btnE); else list.prepend(btnE);
+      };
+    } else {
+      btnE.style.display = 'none';
     }
 
-    // ── LATER button ──
+    // Later button
     if (lastShownStd) {
-      const capturedLast = lastShownStd;
-      const btnL = document.createElement('button');
-      btnL.className = 'page-btn'; btnL.id = 'btnLater';
-      btnL.innerHTML = '↓ Later trains';
-      btnL.addEventListener('click', () => {
-        // Fetch starting 1 minute after the last visible train
-        const startMins = (toMins(capturedLast) + 1 + 1440) % 1440;
+      btnL.style.display = 'flex';
+      btnL.textContent = '↓ Later';
+      btnL.onclick = () => {
+        const startMins = (toMins(lastShownStd) + 1 + 1440) % 1440;
         fetchTrains(minsToOffset(startMins), 'later');
-      });
-      list.appendChild(btnL);
+      };
+    } else {
+      btnL.style.display = 'none';
     }
+
+    pagingBar.classList.toggle('show', !!(firstCardStd || lastShownStd));
 
   } catch(err) {
     loading.classList.remove('show');
@@ -1403,28 +1409,35 @@ async function fetchTrains(offset, mode) {
 // OPERATOR BRANDING
 // Logos from operator apple-touch-icons — reliable, no third-party CDN needed
 // ════════════════════════════════════════
-// Direct favicon/logo URLs from operator websites — more reliable than third-party CDNs
+// Operator logos via Google's favicon service — reliable, no CORS issues
 const OPERATOR_LOGO_URLS = {
-  'TP': 'https://www.tpexpress.co.uk/apple-touch-icon.png',
-  'NT': 'https://www.northernrailway.co.uk/apple-touch-icon.png',
-  'GW': 'https://www.gwr.com/apple-touch-icon.png',
-  'VT': 'https://www.avantiwestcoast.co.uk/apple-touch-icon.png',
-  'LN': 'https://www.lner.co.uk/apple-touch-icon.png',
-  'GR': 'https://www.lner.co.uk/apple-touch-icon.png',
-  'XC': 'https://www.crosscountrytrains.co.uk/apple-touch-icon.png',
-  'EM': 'https://www.eastmidlandsrailway.co.uk/apple-touch-icon.png',
-  'SR': 'https://www.scotrail.co.uk/apple-touch-icon.png',
-  'SW': 'https://www.southwesternrailway.com/apple-touch-icon.png',
-  'SN': 'https://www.southernrailway.com/apple-touch-icon.png',
-  'SE': 'https://www.southeasternrailway.co.uk/apple-touch-icon.png',
-  'GA': 'https://www.greateranglia.co.uk/apple-touch-icon.png',
-  'ME': 'https://www.merseyrail.org/apple-touch-icon.png',
-  'CH': 'https://www.chilternrailways.co.uk/apple-touch-icon.png',
-  'HX': 'https://www.heathrowexpress.com/apple-touch-icon.png',
-  'TW': 'https://www.tfwrail.wales/apple-touch-icon.png',
-  'AW': 'https://www.tfwrail.wales/apple-touch-icon.png',
-  'LD': 'https://www.lumo.co.uk/apple-touch-icon.png',
-  'HT': 'https://www.hulltrains.co.uk/apple-touch-icon.png',
+  'TP': 'https://www.google.com/s2/favicons?domain=tpexpress.co.uk&sz=64',
+  'NT': 'https://www.google.com/s2/favicons?domain=northernrailway.co.uk&sz=64',
+  'GW': 'https://www.google.com/s2/favicons?domain=gwr.com&sz=64',
+  'VT': 'https://www.google.com/s2/favicons?domain=avantiwestcoast.co.uk&sz=64',
+  'LN': 'https://www.google.com/s2/favicons?domain=lner.co.uk&sz=64',
+  'GR': 'https://www.google.com/s2/favicons?domain=lner.co.uk&sz=64',
+  'XC': 'https://www.google.com/s2/favicons?domain=crosscountrytrains.co.uk&sz=64',
+  'EM': 'https://www.google.com/s2/favicons?domain=eastmidlandsrailway.co.uk&sz=64',
+  'SR': 'https://www.google.com/s2/favicons?domain=scotrail.co.uk&sz=64',
+  'SW': 'https://www.google.com/s2/favicons?domain=southwesternrailway.com&sz=64',
+  'SJ': 'https://www.google.com/s2/favicons?domain=southwesternrailway.com&sz=64',
+  'SN': 'https://www.google.com/s2/favicons?domain=southernrailway.com&sz=64',
+  'SE': 'https://www.google.com/s2/favicons?domain=southeasternrailway.co.uk&sz=64',
+  'GA': 'https://www.google.com/s2/favicons?domain=greateranglia.co.uk&sz=64',
+  'LE': 'https://www.google.com/s2/favicons?domain=greateranglia.co.uk&sz=64',
+  'ME': 'https://www.google.com/s2/favicons?domain=merseyrail.org&sz=64',
+  'CH': 'https://www.google.com/s2/favicons?domain=chilternrailways.co.uk&sz=64',
+  'HX': 'https://www.google.com/s2/favicons?domain=heathrowexpress.com&sz=64',
+  'TW': 'https://www.google.com/s2/favicons?domain=tfwrail.wales&sz=64',
+  'AW': 'https://www.google.com/s2/favicons?domain=tfwrail.wales&sz=64',
+  'LD': 'https://www.google.com/s2/favicons?domain=lumo.co.uk&sz=64',
+  'HT': 'https://www.google.com/s2/favicons?domain=hulltrains.co.uk&sz=64',
+  'GN': 'https://www.google.com/s2/favicons?domain=greatnorthernrail.com&sz=64',
+  'TL': 'https://www.google.com/s2/favicons?domain=thameslinkrailway.com&sz=64',
+  'CC': 'https://www.google.com/s2/favicons?domain=c2c-online.co.uk&sz=64',
+  'GC': 'https://www.google.com/s2/favicons?domain=grandcentralrail.com&sz=64',
+  'CS': 'https://www.google.com/s2/favicons?domain=sleeper.scot&sz=64',
 };
 
 const OPERATOR_BRAND = {
@@ -1467,17 +1480,12 @@ function operatorBadge(operatorCode, operatorName) {
   const bg      = brand ? brand.bg : '#6b7a99';
   const fg      = brand ? brand.fg : '#fff';
   const name    = brand ? brand.name : (operatorName || operatorCode || '?');
-  const pill    = `<span style="display:inline-block;background:${bg};color:${fg};font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:sans-serif;white-space:nowrap;vertical-align:middle;">${name}</span>`;
 
   if (logoUrl) {
-    const id = `op${operatorCode}${Math.random().toString(36).slice(2,5)}`;
-    return `<span id="${id}" style="display:inline-block;vertical-align:middle;height:22px;line-height:22px;">` +
-      `<img src="${logoUrl}" alt="${name}" ` +
-      `style="height:22px;width:22px;object-fit:contain;vertical-align:middle;border-radius:4px;" ` +
-      `onerror="document.getElementById('${id}').outerHTML='${pill.replace(/'/g, "\\'")}'"` +
-      `></span>`;
+    return `<img src="${logoUrl}" alt="${name}" title="${name}"
+      style="height:20px;width:20px;object-fit:contain;vertical-align:middle;border-radius:3px;">`;
   }
-  return pill;
+  return `<span style="display:inline-block;background:${bg};color:${fg};font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:var(--sans);white-space:nowrap;vertical-align:middle;">${name}</span>`;
 }
 function makeCard(svc) {
   const dep = svc.std || '--:--';
