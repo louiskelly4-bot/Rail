@@ -353,7 +353,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 <script>
 // App version — increment: MAJOR.MINOR.PATCH
 // MAJOR: breaking changes, MINOR: new features, PATCH: bug fixes
-const APP_VERSION = '1.4.8';
+const APP_VERSION = '1.4.9';
 const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
 const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
 
@@ -1342,20 +1342,36 @@ async function fetchTrains(offset, mode) {
     // startDate should always be today or a known date at midnight.
     function tagDates(services) {
       const now = new Date();
-      const today = new Date(now); today.setHours(0,0,0,0);
-      const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
       const nowM = now.getHours() * 60 + now.getMinutes();
 
+      // Use local date strings to avoid UTC timezone shift
+      function localDateStr(d) {
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      }
+
+      const today = new Date(now); today.setHours(0,0,0,0);
+      const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+      const todayStr    = localDateStr(today);
+      const tomorrowStr = localDateStr(tomorrow);
+
       return services.map(s => {
-        // Timetable entries already have a trusted _date
         if (s._isTimetable && s._date) return s;
         const sm = toMins(s.std);
-        if (sm < 0) return { ...s, _date: today.toISOString().slice(0,10) };
-        // If departure time is before now, this train must be tomorrow
-        // (API only returns upcoming trains, so past times = next day)
-        const date = sm >= nowM ? today : tomorrow;
-        return { ...s, _date: date.toISOString().slice(0,10) };
+        if (sm < 0) return { ...s, _date: todayStr };
+        const dateStr = sm >= nowM ? todayStr : tomorrowStr;
+        return { ...s, _date: dateStr };
       });
+    }
+
+    function formatDividerLabel(dateStr) {
+      const parts = dateStr.split('-').map(Number);
+      const d = new Date(parts[0], parts[1]-1, parts[2]); // local date, no UTC shift
+      const today = new Date(); today.setHours(0,0,0,0);
+      const diff = Math.round((d - today) / 86400000);
+      const dayStr = d.toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'});
+      if (diff === 0) return `Today — ${dayStr}`;
+      if (diff === 1) return `Tomorrow — ${dayStr}`;
+      return dayStr;
     }
 
     function formatDividerLabel(dateStr) {
@@ -1564,9 +1580,9 @@ function makeCard(svc) {
   // Format date label if the service has a _date tag
   let dateLabel = '';
   if (svc._date) {
-    const d = new Date(svc._date + 'T00:00:00');
+    const parts = svc._date.split('-').map(Number);
+    const d = new Date(parts[0], parts[1]-1, parts[2]); // local, no UTC shift
     const today = new Date(); today.setHours(0,0,0,0);
-    const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
     const diff = Math.round((d - today) / 86400000);
     const dayName = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow'
       : d.toLocaleDateString('en-GB', {weekday:'long'});
