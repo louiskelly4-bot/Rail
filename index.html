@@ -347,7 +347,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 <script>
 // App version — increment: MAJOR.MINOR.PATCH
 // MAJOR: breaking changes, MINOR: new features, PATCH: bug fixes
-const APP_VERSION = '1.4.4';
+const APP_VERSION = '1.4.5';
 const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
 const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
 
@@ -1323,58 +1323,63 @@ async function fetchTrains(offset, mode) {
       return d;
     }
 
-    // Tag each service with its calendar date based on midnight rollover
+    // Tag each service with its calendar date based on midnight rollover.
+    // startDate should always be today or a known date at midnight.
     function tagDates(services, startDate) {
-      let currentDate = new Date(startDate);
-      currentDate.setHours(0,0,0,0);
+      const base = new Date(startDate);
+      base.setHours(0, 0, 0, 0); // normalise to midnight
+      let currentDate = new Date(base);
       let lastMins = -1;
       return services.map(s => {
         const sm = toMins(s.std);
-        // Midnight rollover: time went backward
-        if (lastMins > 900 && sm >= 0 && sm < 300) {
+        // Only roll forward if previous train was late night AND this one is early morning
+        if (lastMins > 1200 && sm >= 0 && sm < 300) {
           currentDate = new Date(currentDate);
           currentDate.setDate(currentDate.getDate() + 1);
         }
-        lastMins = sm;
-        return { ...s, _date: currentDate.toISOString().slice(0,10) };
+        lastMins = sm >= 0 ? sm : lastMins;
+        return { ...s, _date: currentDate.toISOString().slice(0, 10) };
       });
     }
 
-    const renderStartDate = new Date();
-    // For later mode, start from the day of the last shown service
-    const laterStartDate = mode === 'later' && loadedSvcs.length > 0 && loadedSvcs[loadedSvcs.length-1]._date
-      ? new Date(loadedSvcs[loadedSvcs.length-1]._date + 'T00:00:00')
-      : renderStartDate;
+    function formatDividerLabel(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      const today = new Date(); today.setHours(0,0,0,0);
+      const diff = Math.round((d - today) / 86400000);
+      const dayStr = d.toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'});
+      if (diff === 0) return `Today — ${dayStr}`;
+      if (diff === 1) return `Tomorrow — ${dayStr}`;
+      return dayStr;
+    }
+
+    // Always start tagging from today midnight
+    const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
 
     if (mode === 'replace') {
       list.innerHTML = '';
       loadedSvcs = [];
       lastShownStd = null;
-      const tagged = tagDates(svcs, renderStartDate);
+      const tagged = tagDates(svcs, todayMidnight);
       let lastDate = null;
       tagged.forEach(s => {
-        if (lastDate && s._date !== lastDate) {
-          const d = new Date(s._date + 'T00:00:00');
-          const today = new Date(); today.setHours(0,0,0,0);
-          const diff = Math.round((d - today) / 86400000);
-          const label = diff === 1 ? `Tomorrow — ${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}` : d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
-          list.appendChild(makeDivider(label));
+        if (s._date !== lastDate) {
+          if (lastDate !== null) list.appendChild(makeDivider(formatDividerLabel(s._date)));
+          lastDate = s._date;
         }
-        lastDate = s._date;
         loadedSvcs.push(s);
         list.appendChild(makeCard(s));
       });
 
     } else if (mode === 'later') {
-      const tagged = tagDates(svcs, laterStartDate);
+      // Start date = date of last shown service (in case we've crossed midnight)
+      const laterStart = loadedSvcs.length > 0 && loadedSvcs[loadedSvcs.length-1]._date
+        ? new Date(loadedSvcs[loadedSvcs.length-1]._date + 'T00:00:00')
+        : todayMidnight;
+      const tagged = tagDates(svcs, laterStart);
       tagged.forEach(s => {
         const prevDate = loadedSvcs.length > 0 ? loadedSvcs[loadedSvcs.length-1]._date : null;
         if (prevDate && s._date !== prevDate) {
-          const d = new Date(s._date + 'T00:00:00');
-          const today = new Date(); today.setHours(0,0,0,0);
-          const diff = Math.round((d - today) / 86400000);
-          const label = diff === 1 ? `Tomorrow — ${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}` : d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
-          list.appendChild(makeDivider(label));
+          list.appendChild(makeDivider(formatDividerLabel(s._date)));
         }
         loadedSvcs.push(s);
         list.appendChild(makeCard(s));
@@ -1391,23 +1396,17 @@ async function fetchTrains(offset, mode) {
       }
 
     } else if (mode === 'earlier') {
-      const earlierStartDate = loadedSvcs.length > 0 && loadedSvcs[0]._date
+      const earlierStart = loadedSvcs.length > 0 && loadedSvcs[0]._date
         ? new Date(loadedSvcs[0]._date + 'T00:00:00')
-        : renderStartDate;
-      // Tag dates working backwards
-      const tagged = tagDates(svcs, earlierStartDate).reverse();
+        : todayMidnight;
+      const tagged = tagDates(svcs, earlierStart).reverse();
       tagged.forEach(s => {
         const nextDate = loadedSvcs.length > 0 ? loadedSvcs[0]._date : null;
         loadedSvcs.unshift(s);
         const c = makeCard(s);
         list.prepend(c);
-        // Insert divider after if date changes
         if (nextDate && s._date !== nextDate) {
-          const d = new Date(nextDate + 'T00:00:00');
-          const today = new Date(); today.setHours(0,0,0,0);
-          const diff = Math.round((d - today) / 86400000);
-          const label = diff === 1 ? `Tomorrow — ${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}` : d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
-          c.after(makeDivider(label));
+          c.after(makeDivider(formatDividerLabel(nextDate)));
         }
       });
       // Remove newest from bottom if over MAX_SHOWN
