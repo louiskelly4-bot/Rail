@@ -242,7 +242,10 @@ header{padding:22px 24px 0;flex-shrink:0;}
         <div class="field-icon from">A</div>
         <div class="field-wrap">
           <div class="field-label">From</div>
-          <input class="station-input" id="fromInput" placeholder="e.g. Leeds" autocomplete="off" spellcheck="false">
+          <div style="position:relative;">
+            <input class="station-input" id="fromInput" placeholder="e.g. Leeds" autocomplete="off" spellcheck="false" style="padding-right:28px;">
+            <button id="fromClear" onclick="document.getElementById('fromInput').value='';document.getElementById('fromAC').classList.remove('open');this.style.display='none';" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;color:var(--muted);line-height:1;padding:0;">✕</button>
+          </div>
           <div class="ac-dd" id="fromAC"></div>
         </div>
       </div>
@@ -250,7 +253,10 @@ header{padding:22px 24px 0;flex-shrink:0;}
         <div class="field-icon to">B</div>
         <div class="field-wrap">
           <div class="field-label">To</div>
-          <input class="station-input" id="toInput" placeholder="e.g. Thornaby" autocomplete="off" spellcheck="false">
+          <div style="position:relative;">
+            <input class="station-input" id="toInput" placeholder="e.g. Thornaby" autocomplete="off" spellcheck="false" style="padding-right:28px;">
+            <button id="toClear" onclick="document.getElementById('toInput').value='';document.getElementById('toAC').classList.remove('open');this.style.display='none';" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;color:var(--muted);line-height:1;padding:0;">✕</button>
+          </div>
           <div class="ac-dd" id="toAC"></div>
         </div>
         <button class="swap-btn" id="swapBtn">
@@ -347,7 +353,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 <script>
 // App version — increment: MAJOR.MINOR.PATCH
 // MAJOR: breaking changes, MINOR: new features, PATCH: bug fixes
-const APP_VERSION = '1.4.5';
+const APP_VERSION = '1.4.7';
 const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
 const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
 
@@ -966,6 +972,15 @@ document.getElementById('goBtn').addEventListener('click', () => doSearch());
   document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') doSearch(); })
 );
 
+// Show/hide ✕ clear buttons as user types
+[['fromInput','fromClear'],['toInput','toClear']].forEach(([inpId, btnId]) => {
+  const inp = document.getElementById(inpId);
+  const btn = document.getElementById(btnId);
+  const update = () => { btn.style.display = inp.value ? 'block' : 'none'; };
+  inp.addEventListener('input', update);
+  inp.addEventListener('change', update);
+});
+
 let curFrom='', curTo='', curFc='', curTc='';
 let curFromCodes=[], curToCodes=[];
 let curBaseOffset = 0; // minutes from now to the "anchor" time for this search
@@ -1325,20 +1340,24 @@ async function fetchTrains(offset, mode) {
 
     // Tag each service with its calendar date based on midnight rollover.
     // startDate should always be today or a known date at midnight.
-    function tagDates(services, startDate) {
-      const base = new Date(startDate);
-      base.setHours(0, 0, 0, 0); // normalise to midnight
-      let currentDate = new Date(base);
-      let lastMins = -1;
+    function tagDates(services) {
+      const now = new Date();
+      const nowM = now.getHours() * 60 + now.getMinutes();
+      let currentDate = new Date(now); currentDate.setHours(0,0,0,0);
+      let lastMins = nowM; // anchor to current time so trains before now aren't "yesterday"
+
       return services.map(s => {
+        // Timetable entries already have a trusted date
+        if (s._date && s._isTimetable) return s;
         const sm = toMins(s.std);
-        // Only roll forward if previous train was late night AND this one is early morning
-        if (lastMins > 1200 && sm >= 0 && sm < 300) {
+        if (sm < 0) return { ...s, _date: currentDate.toISOString().slice(0,10) };
+        // Roll forward if time went backwards by more than 1 hour (midnight crossing)
+        if (sm < lastMins - 60) {
           currentDate = new Date(currentDate);
           currentDate.setDate(currentDate.getDate() + 1);
         }
-        lastMins = sm >= 0 ? sm : lastMins;
-        return { ...s, _date: currentDate.toISOString().slice(0, 10) };
+        lastMins = sm;
+        return { ...s, _date: currentDate.toISOString().slice(0,10) };
       });
     }
 
@@ -1352,14 +1371,11 @@ async function fetchTrains(offset, mode) {
       return dayStr;
     }
 
-    // Always start tagging from today midnight
-    const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
-
     if (mode === 'replace') {
       list.innerHTML = '';
       loadedSvcs = [];
       lastShownStd = null;
-      const tagged = tagDates(svcs, todayMidnight);
+      const tagged = tagDates(svcs);
       let lastDate = null;
       tagged.forEach(s => {
         if (s._date !== lastDate) {
@@ -1371,11 +1387,7 @@ async function fetchTrains(offset, mode) {
       });
 
     } else if (mode === 'later') {
-      // Start date = date of last shown service (in case we've crossed midnight)
-      const laterStart = loadedSvcs.length > 0 && loadedSvcs[loadedSvcs.length-1]._date
-        ? new Date(loadedSvcs[loadedSvcs.length-1]._date + 'T00:00:00')
-        : todayMidnight;
-      const tagged = tagDates(svcs, laterStart);
+      const tagged = tagDates(svcs);
       tagged.forEach(s => {
         const prevDate = loadedSvcs.length > 0 ? loadedSvcs[loadedSvcs.length-1]._date : null;
         if (prevDate && s._date !== prevDate) {
@@ -1396,10 +1408,7 @@ async function fetchTrains(offset, mode) {
       }
 
     } else if (mode === 'earlier') {
-      const earlierStart = loadedSvcs.length > 0 && loadedSvcs[0]._date
-        ? new Date(loadedSvcs[0]._date + 'T00:00:00')
-        : todayMidnight;
-      const tagged = tagDates(svcs, earlierStart).reverse();
+      const tagged = tagDates(svcs).reverse();
       tagged.forEach(s => {
         const nextDate = loadedSvcs.length > 0 ? loadedSvcs[0]._date : null;
         loadedSvcs.unshift(s);
@@ -1467,33 +1476,33 @@ async function fetchTrains(offset, mode) {
 // ════════════════════════════════════════
 // Operator logos via Google's favicon service — reliable, no CORS issues
 const OPERATOR_LOGO_URLS = {
-  'TP': 'https://www.google.com/s2/favicons?domain=tpexpress.co.uk&sz=64',
-  'NT': 'https://www.google.com/s2/favicons?domain=northernrailway.co.uk&sz=64',
-  'GW': 'https://www.google.com/s2/favicons?domain=gwr.com&sz=64',
-  'VT': 'https://www.google.com/s2/favicons?domain=avantiwestcoast.co.uk&sz=64',
-  'LN': 'https://www.google.com/s2/favicons?domain=lner.co.uk&sz=64',
-  'GR': 'https://www.google.com/s2/favicons?domain=lner.co.uk&sz=64',
-  'XC': 'https://www.google.com/s2/favicons?domain=crosscountrytrains.co.uk&sz=64',
-  'EM': 'https://www.google.com/s2/favicons?domain=eastmidlandsrailway.co.uk&sz=64',
-  'SR': 'https://www.google.com/s2/favicons?domain=scotrail.co.uk&sz=64',
-  'SW': 'https://www.google.com/s2/favicons?domain=southwesternrailway.com&sz=64',
-  'SJ': 'https://www.google.com/s2/favicons?domain=southwesternrailway.com&sz=64',
-  'SN': 'https://www.google.com/s2/favicons?domain=southernrailway.com&sz=64',
-  'SE': 'https://www.google.com/s2/favicons?domain=southeasternrailway.co.uk&sz=64',
-  'GA': 'https://www.google.com/s2/favicons?domain=greateranglia.co.uk&sz=64',
-  'LE': 'https://www.google.com/s2/favicons?domain=greateranglia.co.uk&sz=64',
-  'ME': 'https://www.google.com/s2/favicons?domain=merseyrail.org&sz=64',
-  'CH': 'https://www.google.com/s2/favicons?domain=chilternrailways.co.uk&sz=64',
-  'HX': 'https://www.google.com/s2/favicons?domain=heathrowexpress.com&sz=64',
-  'TW': 'https://www.google.com/s2/favicons?domain=tfwrail.wales&sz=64',
-  'AW': 'https://www.google.com/s2/favicons?domain=tfwrail.wales&sz=64',
-  'LD': 'https://www.google.com/s2/favicons?domain=lumo.co.uk&sz=64',
-  'HT': 'https://www.google.com/s2/favicons?domain=hulltrains.co.uk&sz=64',
-  'GN': 'https://www.google.com/s2/favicons?domain=greatnorthernrail.com&sz=64',
-  'TL': 'https://www.google.com/s2/favicons?domain=thameslinkrailway.com&sz=64',
-  'CC': 'https://www.google.com/s2/favicons?domain=c2c-online.co.uk&sz=64',
-  'GC': 'https://www.google.com/s2/favicons?domain=grandcentralrail.com&sz=64',
-  'CS': 'https://www.google.com/s2/favicons?domain=sleeper.scot&sz=64',
+  'TP': 'https://www.google.com/s2/favicons?domain=tpexpress.co.uk&sz=128',
+  'NT': 'https://www.google.com/s2/favicons?domain=northernrailway.co.uk&sz=128',
+  'GW': 'https://www.google.com/s2/favicons?domain=gwr.com&sz=128',
+  'VT': 'https://www.google.com/s2/favicons?domain=avantiwestcoast.co.uk&sz=128',
+  'LN': 'https://www.google.com/s2/favicons?domain=lner.co.uk&sz=128',
+  'GR': 'https://www.google.com/s2/favicons?domain=lner.co.uk&sz=128',
+  'XC': 'https://www.google.com/s2/favicons?domain=crosscountrytrains.co.uk&sz=128',
+  'EM': 'https://www.google.com/s2/favicons?domain=eastmidlandsrailway.co.uk&sz=128',
+  'SR': 'https://www.google.com/s2/favicons?domain=scotrail.co.uk&sz=128',
+  'SW': 'https://www.google.com/s2/favicons?domain=southwesternrailway.com&sz=128',
+  'SJ': 'https://www.google.com/s2/favicons?domain=southwesternrailway.com&sz=128',
+  'SN': 'https://www.google.com/s2/favicons?domain=southernrailway.com&sz=128',
+  'SE': 'https://www.google.com/s2/favicons?domain=southeasternrailway.co.uk&sz=128',
+  'GA': 'https://www.google.com/s2/favicons?domain=greateranglia.co.uk&sz=128',
+  'LE': 'https://www.google.com/s2/favicons?domain=greateranglia.co.uk&sz=128',
+  'ME': 'https://www.google.com/s2/favicons?domain=merseyrail.org&sz=128',
+  'CH': 'https://www.google.com/s2/favicons?domain=chilternrailways.co.uk&sz=128',
+  'HX': 'https://www.google.com/s2/favicons?domain=heathrowexpress.com&sz=128',
+  'TW': 'https://www.google.com/s2/favicons?domain=tfwrail.wales&sz=128',
+  'AW': 'https://www.google.com/s2/favicons?domain=tfwrail.wales&sz=128',
+  'LD': 'https://www.google.com/s2/favicons?domain=lumo.co.uk&sz=128',
+  'HT': 'https://www.google.com/s2/favicons?domain=hulltrains.co.uk&sz=128',
+  'GN': 'https://www.google.com/s2/favicons?domain=greatnorthernrail.com&sz=128',
+  'TL': 'https://www.google.com/s2/favicons?domain=thameslinkrailway.com&sz=128',
+  'CC': 'https://www.google.com/s2/favicons?domain=c2c-online.co.uk&sz=128',
+  'GC': 'https://www.google.com/s2/favicons?domain=grandcentralrail.com&sz=128',
+  'CS': 'https://www.google.com/s2/favicons?domain=sleeper.scot&sz=128',
 };
 
 const OPERATOR_BRAND = {
