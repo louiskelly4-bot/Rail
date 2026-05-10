@@ -76,20 +76,20 @@ header{padding:22px 24px 0;flex-shrink:0;}
 .ac-nm mark{background:none;color:var(--accent);font-weight:600;}
 
 /* SECTIONS */
-.sec{padding:14px 24px 0;flex-shrink:0;}
-.sec-hd{font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:9px;}
-.chip-row{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
+.sec{padding:10px 24px 0;flex-shrink:0;}
+.sec-hd{font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.chip-row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
 .chip-row::-webkit-scrollbar{display:none;}
-.pop-chip{flex-shrink:0;display:flex;flex-direction:column;background:var(--paper);border:1.5px solid var(--rule);border-radius:11px;padding:8px 12px;cursor:pointer;transition:all 0.15s;min-width:100px;}
+.pop-chip{flex-shrink:0;display:flex;flex-direction:column;background:var(--paper);border:1.5px solid var(--rule);border-radius:8px;padding:5px 10px;cursor:pointer;transition:all 0.15s;min-width:80px;}
 .pop-chip:active{border-color:var(--accent);background:var(--warm);}
-.pop-r{font-size:12px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:3px;}
-.pop-a{color:var(--muted);font-size:11px;}
-.pop-l{font-size:10px;color:var(--muted);margin-top:2px;}
-.fav-chip{flex-shrink:0;display:flex;align-items:center;gap:6px;background:var(--paper);border:1.5px solid rgba(232,160,32,0.4);border-radius:11px;padding:8px 11px;cursor:pointer;transition:all 0.15s;max-width:150px;}
+.pop-r{font-size:11px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:3px;}
+.pop-a{color:var(--muted);font-size:10px;}
+.pop-l{font-size:9px;color:var(--muted);margin-top:1px;}
+.fav-chip{flex-shrink:0;display:flex;align-items:center;gap:5px;background:var(--paper);border:1.5px solid rgba(232,160,32,0.4);border-radius:8px;padding:5px 9px;cursor:pointer;transition:all 0.15s;max-width:140px;}
 .fav-chip:active{background:var(--warm);}
-.fav-star-sm{color:#e8a020;font-size:12px;flex-shrink:0;}
-.fav-nm{font-size:11px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.fav-sub{font-size:10px;color:var(--muted);}
+.fav-star-sm{color:#e8a020;font-size:11px;flex-shrink:0;}
+.fav-nm{font-size:10px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fav-sub{font-size:9px;color:var(--muted);}
 
 /* DIVIDER */
 .divider{height:1px;background:var(--rule);margin:14px 24px 0;}
@@ -244,7 +244,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
           <div class="field-label">From</div>
           <div style="position:relative;">
             <input class="station-input" id="fromInput" placeholder="e.g. Leeds" autocomplete="off" spellcheck="false" style="padding-right:28px;">
-            <button id="fromClear" onclick="document.getElementById('fromInput').value='';document.getElementById('fromAC').classList.remove('open');this.style.display='none';" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;color:var(--muted);line-height:1;padding:0;">✕</button>
+            <button id="fromClear" onclick="document.getElementById('fromInput').value='';document.getElementById('fromAC').classList.remove('open');updateClearBtns();" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;color:var(--muted);line-height:1;padding:0;">✕</button>
           </div>
           <div class="ac-dd" id="fromAC"></div>
         </div>
@@ -255,7 +255,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
           <div class="field-label">To</div>
           <div style="position:relative;">
             <input class="station-input" id="toInput" placeholder="e.g. Thornaby" autocomplete="off" spellcheck="false" style="padding-right:28px;">
-            <button id="toClear" onclick="document.getElementById('toInput').value='';document.getElementById('toAC').classList.remove('open');this.style.display='none';" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;color:var(--muted);line-height:1;padding:0;">✕</button>
+            <button id="toClear" onclick="document.getElementById('toInput').value='';document.getElementById('toAC').classList.remove('open');updateClearBtns();" style="display:none;position:absolute;right:36px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;color:var(--muted);line-height:1;padding:0;">✕</button>
           </div>
           <div class="ac-dd" id="toAC"></div>
         </div>
@@ -357,7 +357,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 <script>
 // App version — increment: MAJOR.MINOR.PATCH
 // MAJOR: breaking changes, MINOR: new features, PATCH: bug fixes
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.5.3';
 const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
 const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
 
@@ -805,6 +805,7 @@ function setupAC(inId, acId) {
   ac.addEventListener('mousedown', e => {
     const it = e.target.closest('.ac-it'); if (!it) return;
     e.preventDefault(); inp.value = it.dataset.name; ac.classList.remove('open'); inp.blur();
+    updateClearBtns();
   });
   inp.addEventListener('keydown', e => {
     const its = ac.querySelectorAll('.ac-it'); if (!its.length) return;
@@ -990,6 +991,7 @@ document.getElementById('dtControls').addEventListener('click', e => {
 document.getElementById('swapBtn').addEventListener('click', () => {
   const f = document.getElementById('fromInput'), t = document.getElementById('toInput');
   [f.value, t.value] = [t.value, f.value];
+  updateClearBtns();
 });
 
 // ════════════════════════════════════════
@@ -1000,14 +1002,13 @@ document.getElementById('goBtn').addEventListener('click', () => doSearch());
   document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') doSearch(); })
 );
 
-// Show/hide ✕ clear buttons as user types
-[['fromInput','fromClear'],['toInput','toClear']].forEach(([inpId, btnId]) => {
-  const inp = document.getElementById(inpId);
-  const btn = document.getElementById(btnId);
-  const update = () => { btn.style.display = inp.value ? 'block' : 'none'; };
-  inp.addEventListener('input', update);
-  inp.addEventListener('change', update);
-});
+// Show/hide ✕ clear buttons — called whenever inputs change
+function updateClearBtns() {
+  document.getElementById('fromClear').style.display = document.getElementById('fromInput').value ? 'block' : 'none';
+  document.getElementById('toClear').style.display   = document.getElementById('toInput').value   ? 'block' : 'none';
+}
+document.getElementById('fromInput').addEventListener('input', updateClearBtns);
+document.getElementById('toInput').addEventListener('input', updateClearBtns);
 
 let curFrom='', curTo='', curFc='', curTc='';
 let curFromCodes=[], curToCodes=[];
@@ -1643,8 +1644,9 @@ function makeCard(svc) {
       </div>
     </div>
     <div class="card-foot">
-      ${svc._isTimetable ? `<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(107,122,153,0.15);color:var(--muted);font-family:var(--sans);vertical-align:middle;">TIMETABLE</span>` : operatorBadge(svc.operatorCode, op)}
+      ${operatorBadge(svc.operatorCode, op)}
       <span class="opr">${op}</span>
+      ${svc._isTimetable ? `<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(107,122,153,0.12);color:var(--muted);font-family:var(--sans);">Timetable</span>` : ''}
       <span class="fav-btn ${isFav?'starred':''}" title="${isFav?'Remove from favourites':'Star this train'}">${isFav?'★':'☆'}</span>
     </div>`;
 
@@ -1844,8 +1846,7 @@ document.getElementById('recentList').addEventListener('click', e => {
   const ch = e.target.closest('.pop-chip'); if (!ch) return;
   document.getElementById('fromInput').value = ch.dataset.from;
   document.getElementById('toInput').value   = ch.dataset.to;
-  document.getElementById('fromClear').style.display = 'block';
-  document.getElementById('toClear').style.display   = 'block';
+  updateClearBtns();
   doSearch();
 });
 
@@ -1853,20 +1854,20 @@ document.getElementById('popularList').addEventListener('click', e => {
   const it = e.target.closest('.pop-chip'); if (!it) return;
   document.getElementById('fromInput').value = it.dataset.from;
   document.getElementById('toInput').value   = it.dataset.to;
+  updateClearBtns();
   doSearch();
 });
 document.getElementById('favStrip').addEventListener('click', e => {
   const ch = e.target.closest('.fav-chip'); if (!ch) return;
   const f = favourites[parseInt(ch.dataset.i)]; if (!f) return;
   if (f.svcSnapshot) {
-    // Restore context so detail sheet shows correct route info
     curFrom = f.snapshotFrom; curTo = f.snapshotTo;
     curFc = f.snapshotFc; curTc = f.snapshotTc;
     openDetail(f.svcSnapshot);
   } else {
-    // Fallback: search the route
     document.getElementById('fromInput').value = f.from;
     document.getElementById('toInput').value = f.to;
+    updateClearBtns();
     doSearch();
   }
 });
@@ -1894,6 +1895,7 @@ document.getElementById('pnBody').addEventListener('click', e => {
     } else {
       document.getElementById('fromInput').value = f.from;
       document.getElementById('toInput').value = f.to;
+      updateClearBtns();
       doSearch();
     }
   }
