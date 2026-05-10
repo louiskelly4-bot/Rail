@@ -291,13 +291,17 @@ header{padding:22px 24px 0;flex-shrink:0;}
     <div class="chip-row" id="popularList"></div>
   </div>
 
+  <div class="sec" id="recentSection" style="display:none;">
+    <div class="sec-hd">Recent</div>
+    <div class="chip-row" id="recentList"></div>
+  </div>
+
   <div class="sec" id="favSection" style="display:none;">
     <div class="sec-hd">★ Favourites</div>
     <div class="chip-row" id="favStrip"></div>
   </div>
 
   <div class="divider"></div>
-
   <div class="results-section" id="resultsSection">
     <button class="page-btn" id="btnEarlier">↑ Earlier trains</button>
     <div class="empty-state" id="emptyState">
@@ -353,7 +357,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 <script>
 // App version — increment: MAJOR.MINOR.PATCH
 // MAJOR: breaking changes, MINOR: new features, PATCH: bug fixes
-const APP_VERSION = '1.4.9';
+const APP_VERSION = '1.5.0';
 const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
 const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
 
@@ -867,6 +871,7 @@ function ld(k,d) { try { const v=localStorage.getItem(k); return v ? JSON.parse(
 function sv(k,v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 
 let searchCounts = ld('sc2', {});
+let recentRoutes = ld('recentRoutes', []); // [{from, to, fc, tc}] newest first
 // favourites: [{label, from, to, fc, tc, dep, operator, serviceId}]
 let favourites   = ld('favs2', []);
 
@@ -876,11 +881,20 @@ const PINNED = [
 ];
 
 function recordSearch(from, to, fc, tc) {
+  // Update search counts for popular routes
   const k = `${fc}__${tc}`;
   searchCounts[k] = (searchCounts[k]||0) + 1;
   searchCounts[k+'_n'] = `${from}|||${to}`;
   sv('sc2', searchCounts);
+
+  // Update recent routes — prepend, remove duplicates, cap at 10
+  recentRoutes = recentRoutes.filter(r => !(r.fc === fc && r.tc === tc));
+  recentRoutes.unshift({from, to, fc, tc});
+  recentRoutes = recentRoutes.slice(0, 10);
+  sv('recentRoutes', recentRoutes);
+
   renderPopular();
+  renderRecent();
 }
 
 function renderPopular() {
@@ -888,15 +902,29 @@ function renderPopular() {
   const pk = PINNED.map(p => `${p.fc}__${p.tc}`);
   const dyn = Object.entries(searchCounts)
     .filter(([k]) => !k.endsWith('_n') && !pk.includes(k))
-    .sort((a,b) => b[1]-a[1]).slice(0,8)
+    .sort((a,b) => b[1]-a[1])
     .map(([k]) => {
       const nm = searchCounts[k+'_n']||'';
       const [from='',to=''] = nm.split('|||');
       const [fc,tc] = k.split('__');
       return {from, to, fc, tc};
     }).filter(r => r.from && r.to);
-  const all = [...PINNED, ...dyn];
+
+  // Max 4 total: pinned first, then fill with dynamic
+  const all = [...PINNED, ...dyn].slice(0, 4);
   list.innerHTML = all.map(r =>
+    `<div class="pop-chip" data-from="${r.from}" data-to="${r.to}">
+      <div class="pop-r">${r.fc}<span class="pop-a">→</span>${r.tc}</div>
+      <div class="pop-l">${r.from.split(' ')[0]}→${r.to.split(' ')[0]}</div>
+    </div>`).join('');
+}
+
+function renderRecent() {
+  const sec  = document.getElementById('recentSection');
+  const list = document.getElementById('recentList');
+  if (!recentRoutes.length) { sec.style.display='none'; return; }
+  sec.style.display = 'block';
+  list.innerHTML = recentRoutes.map(r =>
     `<div class="pop-chip" data-from="${r.from}" data-to="${r.to}">
       <div class="pop-r">${r.fc}<span class="pop-a">→</span>${r.tc}</div>
       <div class="pop-l">${r.from.split(' ')[0]}→${r.to.split(' ')[0]}</div>
@@ -1812,6 +1840,15 @@ function renderStops(pts) {
 // ════════════════════════════════════════
 // POPULAR / FAV STRIP CLICKS
 // ════════════════════════════════════════
+document.getElementById('recentList').addEventListener('click', e => {
+  const ch = e.target.closest('.pop-chip'); if (!ch) return;
+  document.getElementById('fromInput').value = ch.dataset.from;
+  document.getElementById('toInput').value   = ch.dataset.to;
+  document.getElementById('fromClear').style.display = 'block';
+  document.getElementById('toClear').style.display   = 'block';
+  doSearch();
+});
+
 document.getElementById('popularList').addEventListener('click', e => {
   const it = e.target.closest('.pop-chip'); if (!it) return;
   document.getElementById('fromInput').value = it.dataset.from;
@@ -1874,6 +1911,7 @@ document.getElementById('panelOverlay').addEventListener('click', e => { if(e.ta
 // INIT
 // ════════════════════════════════════════
 renderPopular();
+renderRecent();
 renderFavStrip();
 document.getElementById('versionLbl').textContent = `v${APP_VERSION}`;
 </script>
