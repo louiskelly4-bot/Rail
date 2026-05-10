@@ -213,9 +213,10 @@ header{padding:22px 24px 0;flex-shrink:0;}
 .fav-row-sub{font-size:11px;color:var(--muted);margin-top:1px;}
 .fav-row-del{font-size:17px;color:var(--muted);cursor:pointer;padding:5px;flex-shrink:0;}
 .pn-empty{padding:28px 0;text-align:center;color:var(--muted);font-size:13px;line-height:1.6;}
-.date-divider{display:flex;align-items:center;gap:10px;margin:14px 0 8px;color:var(--muted);}
-.date-divider span{font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;white-space:nowrap;color:var(--ink2);}
-.date-divider::before,.date-divider::after{content:'';flex:1;height:1px;background:var(--rule);}
+.date-divider{display:flex;align-items:center;gap:10px;margin:18px 0 10px;color:var(--muted);}
+.date-divider-inner{background:var(--warm);border:1.5px solid var(--rule);border-radius:20px;padding:4px 14px;font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:0.5px;color:var(--ink2);white-space:nowrap;}
+.date-divider::before,.date-divider::after{content:'';flex:1;height:1.5px;background:var(--rule);}
+.card-date{font-family:var(--sans);font-size:10px;font-weight:600;color:var(--muted);margin-bottom:3px;letter-spacing:0.2px;}
 
 </style>
 </head>
@@ -346,7 +347,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 <script>
 // App version — increment: MAJOR.MINOR.PATCH
 // MAJOR: breaking changes, MINOR: new features, PATCH: bug fixes
-const APP_VERSION = '1.4.3';
+const APP_VERSION = '1.4.4';
 const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
 const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
 
@@ -1314,52 +1315,75 @@ async function fetchTrains(offset, mode) {
       list.appendChild(hdr);
     }
 
-    // Helper: insert a "Tomorrow" divider between day boundaries
+    // Helper: insert a date divider
     function makeDivider(label) {
       const d = document.createElement('div');
       d.className = 'date-divider';
-      d.innerHTML = `<span>${label}</span>`;
+      d.innerHTML = `<div class="date-divider-inner">${label}</div>`;
       return d;
     }
+
+    // Tag each service with its calendar date based on midnight rollover
+    function tagDates(services, startDate) {
+      let currentDate = new Date(startDate);
+      currentDate.setHours(0,0,0,0);
+      let lastMins = -1;
+      return services.map(s => {
+        const sm = toMins(s.std);
+        // Midnight rollover: time went backward
+        if (lastMins > 900 && sm >= 0 && sm < 300) {
+          currentDate = new Date(currentDate);
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+        lastMins = sm;
+        return { ...s, _date: currentDate.toISOString().slice(0,10) };
+      });
+    }
+
+    const renderStartDate = new Date();
+    // For later mode, start from the day of the last shown service
+    const laterStartDate = mode === 'later' && loadedSvcs.length > 0 && loadedSvcs[loadedSvcs.length-1]._date
+      ? new Date(loadedSvcs[loadedSvcs.length-1]._date + 'T00:00:00')
+      : renderStartDate;
 
     if (mode === 'replace') {
       list.innerHTML = '';
       loadedSvcs = [];
       lastShownStd = null;
-      let lastMins = -1;
-      let shownTomorrow = false;
-      svcs.forEach(s => {
-        const sm = toMins(s.std);
-        if (!shownTomorrow && lastMins > 900 && sm >= 0 && sm < 300) {
-          shownTomorrow = true;
-          list.appendChild(makeDivider('Tomorrow'));
+      const tagged = tagDates(svcs, renderStartDate);
+      let lastDate = null;
+      tagged.forEach(s => {
+        if (lastDate && s._date !== lastDate) {
+          const d = new Date(s._date + 'T00:00:00');
+          const today = new Date(); today.setHours(0,0,0,0);
+          const diff = Math.round((d - today) / 86400000);
+          const label = diff === 1 ? `Tomorrow — ${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}` : d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+          list.appendChild(makeDivider(label));
         }
+        lastDate = s._date;
         loadedSvcs.push(s);
         list.appendChild(makeCard(s));
-        lastMins = sm;
       });
 
     } else if (mode === 'later') {
-      // Add 5 at bottom, remove 5 from top if over MAX_SHOWN
-      let lastMins = loadedSvcs.length > 0 ? toMins(loadedSvcs[loadedSvcs.length-1].std) : -1;
-      let shownTomorrow = list.querySelector('.date-divider') !== null;
-      svcs.forEach(s => {
-        const sm = toMins(s.std);
-        if (!shownTomorrow && lastMins > 900 && sm >= 0 && sm < 300) {
-          shownTomorrow = true;
-          list.appendChild(makeDivider('Tomorrow'));
+      const tagged = tagDates(svcs, laterStartDate);
+      tagged.forEach(s => {
+        const prevDate = loadedSvcs.length > 0 ? loadedSvcs[loadedSvcs.length-1]._date : null;
+        if (prevDate && s._date !== prevDate) {
+          const d = new Date(s._date + 'T00:00:00');
+          const today = new Date(); today.setHours(0,0,0,0);
+          const diff = Math.round((d - today) / 86400000);
+          const label = diff === 1 ? `Tomorrow — ${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}` : d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+          list.appendChild(makeDivider(label));
         }
         loadedSvcs.push(s);
         list.appendChild(makeCard(s));
-        lastMins = sm;
       });
-      // Remove oldest cards from top if over MAX_SHOWN
+      // Remove oldest from top if over MAX_SHOWN
       while (loadedSvcs.length > MAX_SHOWN) {
         loadedSvcs.shift();
-        // Remove first train-card (skip dividers)
         const first = list.querySelector('.train-card');
         if (first) {
-          // Also remove a preceding date-divider if it's now orphaned at top
           const prev = first.previousElementSibling;
           if (prev && prev.classList.contains('date-divider')) prev.remove();
           first.remove();
@@ -1367,19 +1391,30 @@ async function fetchTrains(offset, mode) {
       }
 
     } else if (mode === 'earlier') {
-      // Add 5 at top, remove 5 from bottom if over MAX_SHOWN
-      const newCards = [];
-      svcs.slice().reverse().forEach(s => {
+      const earlierStartDate = loadedSvcs.length > 0 && loadedSvcs[0]._date
+        ? new Date(loadedSvcs[0]._date + 'T00:00:00')
+        : renderStartDate;
+      // Tag dates working backwards
+      const tagged = tagDates(svcs, earlierStartDate).reverse();
+      tagged.forEach(s => {
+        const nextDate = loadedSvcs.length > 0 ? loadedSvcs[0]._date : null;
         loadedSvcs.unshift(s);
-        newCards.push(makeCard(s));
+        const c = makeCard(s);
+        list.prepend(c);
+        // Insert divider after if date changes
+        if (nextDate && s._date !== nextDate) {
+          const d = new Date(nextDate + 'T00:00:00');
+          const today = new Date(); today.setHours(0,0,0,0);
+          const diff = Math.round((d - today) / 86400000);
+          const label = diff === 1 ? `Tomorrow — ${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}` : d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+          c.after(makeDivider(label));
+        }
       });
-      // Insert at top of list
-      newCards.forEach(c => list.prepend(c));
-      // Remove newest cards from bottom if over MAX_SHOWN
+      // Remove newest from bottom if over MAX_SHOWN
       while (loadedSvcs.length > MAX_SHOWN) {
         loadedSvcs.pop();
         const cards = list.querySelectorAll('.train-card');
-        const last = cards[cards.length - 1];
+        const last = cards[cards.length-1];
         if (last) {
           const next = last.nextElementSibling;
           if (next && next.classList.contains('date-divider')) next.remove();
@@ -1521,16 +1556,30 @@ function makeCard(svc) {
   const plt  = svc.platform;
   const op   = svc.operator || '';
 
+  // Format date label if the service has a _date tag
+  let dateLabel = '';
+  if (svc._date) {
+    const d = new Date(svc._date + 'T00:00:00');
+    const today = new Date(); today.setHours(0,0,0,0);
+    const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
+    const diff = Math.round((d - today) / 86400000);
+    const dayName = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow'
+      : d.toLocaleDateString('en-GB', {weekday:'long'});
+    const dateStr = d.toLocaleDateString('en-GB', {day:'numeric', month:'short'});
+    dateLabel = `<div class="card-date">${dayName} · ${dateStr}</div>`;
+  }
+
   // Check if this specific train is already a favourite
   const sid  = svc.serviceID || svc.serviceIdGuid || svc.serviceIdUrlSafe || '';
   const isFav = favourites.some(f => f.serviceId === sid && sid);
 
   const c = document.createElement('div');
   c.className = `train-card ${cls}`;
-  c.dataset.std = dep; // used by load-more to track last shown time
+  c.dataset.std = dep;
   c.innerHTML = `
     <div class="card-body">
       <div class="tc">
+        ${dateLabel}
         <div class="dep">${dep}</div>
         <div class="arr">arr ${arr}</div>
       </div>
