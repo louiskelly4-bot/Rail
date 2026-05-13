@@ -71,30 +71,35 @@ def wiki_thumb_url(project, filename, width):
 def download_logos():
     """Download operator logos and save to logos/ directory."""
     os.makedirs('logos', exist_ok=True)
-    headers = {'User-Agent': 'Trackr/2.0 (github-actions; UK rail timetable app)'}
+    # Wikimedia requires a descriptive User-Agent with contact info
+    headers = {
+        'User-Agent': 'Trackr/2.0 (UK rail timetable PWA; https://github.com; bot@example.com)',
+        'Accept': 'image/png,image/*',
+    }
     downloaded = 0
     for code, (project, filename, width) in OPERATOR_LOGOS.items():
         out_path = f'logos/{code}.png'
-        # Skip if already downloaded today (avoid re-downloading unnecessarily)
         if os.path.exists(out_path) and os.path.getsize(out_path) > 500:
-            print(f"  {code}: already exists, skipping")
+            print(f"  {code}: exists, skipping")
             continue
         url = wiki_thumb_url(project, filename, width)
+        print(f"  {code}: trying {url}")
         try:
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=15) as r:
+                status = r.status
                 data = r.read()
-            if len(data) > 500:  # valid image, not an error page
+            if len(data) > 500:
                 with open(out_path, 'wb') as f:
                     f.write(data)
-                print(f"  {code}: downloaded {len(data)//1024}KB → {out_path}")
+                print(f"  {code}: OK ({len(data)//1024}KB)")
                 downloaded += 1
             else:
-                print(f"  {code}: response too small ({len(data)}B), skipping")
+                print(f"  {code}: response too small ({len(data)}B) status={status}")
         except Exception as e:
-            print(f"  {code}: failed ({e})")
-        time.sleep(0.3)  # be polite to Wikipedia
-    print(f"Downloaded {downloaded} logos")
+            print(f"  {code}: FAILED — {e}")
+        time.sleep(0.5)
+    print(f"Downloaded {downloaded}/{len(OPERATOR_LOGOS)} logos")
 
 print("=== Downloading operator logos ===")
 download_logos()
