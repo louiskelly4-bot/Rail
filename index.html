@@ -133,6 +133,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 .train-card.delayed{border-left:4px solid var(--amber);}
 .train-card.cancelled{border-left:4px solid var(--red);opacity:0.7;}
 .train-card.on-time{border-left:4px solid var(--green);}
+.train-card.departed{border-left:4px solid var(--muted);opacity:0.7;}
 .card-body{padding:13px 15px 10px;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;}
 .tc{display:flex;flex-direction:column;gap:2px;}
 .dep{font-family:var(--serif);font-size:24px;font-weight:700;line-height:1;color:var(--ink);letter-spacing:-0.5px;}
@@ -149,6 +150,7 @@ header{padding:22px 24px 0;flex-shrink:0;}
 .sc.on-time{background:var(--green-bg);color:var(--green);}
 .sc.delayed{background:var(--amber-bg);color:var(--amber);}
 .sc.cancelled{background:var(--red-bg);color:var(--red);}
+.sc.departed{background:rgba(107,122,153,0.12);color:var(--muted);}
 .plt-tag{font-size:11px;color:var(--muted);}
 .plt-tag strong{color:var(--ink);}
 .card-foot{padding:7px 15px;border-top:1px solid var(--rule);display:flex;align-items:center;gap:8px;}
@@ -193,8 +195,9 @@ body.dash-open{overflow:hidden;position:fixed;width:100%;}
 .dash-pos-bar{position:relative;height:6px;background:var(--rule);border-radius:3px;margin:30px 8px 8px;}
 .dash-pos-fill{position:absolute;left:0;top:0;height:100%;background:linear-gradient(to right, var(--accent), #c47821);border-radius:3px;transition:width 0.8s ease;}
 .dash-pos-train{position:absolute;top:50%;transform:translate(-50%,-50%);font-size:24px;transition:left 0.8s ease;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25));z-index:2;}
-.dash-pos-dot{position:absolute;top:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:var(--paper);border:2px solid var(--rule);z-index:1;}
+.dash-pos-dot{width:10px;height:10px;border-radius:50%;background:var(--paper);border:2px solid var(--rule);flex-shrink:0;}
 .dash-pos-dot.passed{background:var(--accent);border-color:var(--accent);}
+.dash-pos-dot.current{background:var(--paper);border-color:var(--accent);box-shadow:0 0 0 3px rgba(232,160,32,0.25);}
 .dash-pos-ends{display:flex;justify-content:space-between;margin-top:14px;font-family:var(--sans);font-size:11px;}
 .dash-pos-end{max-width:42%;}
 .dash-pos-end.right{text-align:right;}
@@ -225,31 +228,33 @@ body.dash-open{overflow:hidden;position:fixed;width:100%;}
 .dash-stop-actual.ontime{color:#1a6b3c;}
 .dash-stop-actual.cxl{color:var(--red);}
 
-/* COACH DIAGRAM */
-.dash-coaches{margin-top:14px;}
-.dash-coaches-lbl{font-family:var(--sans);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
-.dash-coaches-scroll{overflow-x:auto;scrollbar-width:none;padding:4px 2px 16px;}
+/* COACH DIAGRAM — clean infographic style */
+.dash-coaches{margin-top:16px;padding-top:14px;border-top:1px solid var(--rule);}
+.dash-coaches-lbl{font-family:var(--sans);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
+.dash-coaches-scroll{overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
 .dash-coaches-scroll::-webkit-scrollbar{display:none;}
-.dash-coaches-row{display:flex;align-items:flex-end;gap:0;width:max-content;}
-/* Engine unit */
-.coach-loco{position:relative;width:44px;height:44px;flex-shrink:0;}
-.coach-loco svg{width:44px;height:44px;}
-/* Coach car */
-.coach{position:relative;display:flex;flex-direction:column;align-items:center;width:38px;flex-shrink:0;}
-.coach-body{width:34px;height:44px;background:var(--ink);border-radius:3px;position:relative;display:flex;align-items:center;justify-content:center;margin:0 2px;}
-.coach-body::before,.coach-body::after{content:'';position:absolute;bottom:-10px;width:10px;height:10px;border-radius:50%;background:var(--ink2);border:2px solid var(--rule);}
-.coach-body::before{left:3px;}
-.coach-body::after{right:3px;}
-/* Windows */
-.coach-windows{position:absolute;top:8px;left:0;right:0;display:flex;justify-content:center;gap:3px;}
-.coach-win{width:7px;height:8px;background:rgba(255,255,255,0.18);border-radius:1px;}
-/* Rail line */
-.coach-rail{position:absolute;bottom:-6px;left:-2px;right:-2px;height:3px;background:var(--ink2);border-radius:1px;}
-.coach-label{font-family:var(--sans);font-size:10px;font-weight:800;color:white;position:relative;z-index:1;}
-.coach-letter-below{font-family:var(--sans);font-size:10px;font-weight:700;color:var(--ink2);margin-top:14px;text-align:center;}
-.coach-loading-bar{position:absolute;bottom:4px;left:4px;right:4px;height:3px;border-radius:2px;background:rgba(255,255,255,0.15);}
-.coach-loading-fill{height:100%;border-radius:2px;}
-.dash-coaches-note{font-family:var(--sans);font-size:10px;color:var(--muted);margin-top:4px;}
+.dash-coaches-track{display:flex;align-items:flex-end;gap:3px;width:max-content;padding:0 2px 0 0;}
+/* Loco */
+.coach-loco-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.coach-loco-car{width:40px;height:26px;background:var(--ink);border-radius:8px 4px 4px 8px;position:relative;}
+.coach-loco-car::after{content:'';position:absolute;right:-6px;top:50%;transform:translateY(-50%);border-top:6px solid transparent;border-bottom:6px solid transparent;border-left:6px solid var(--ink);}
+.coach-loco-cab{position:absolute;left:4px;top:4px;width:12px;height:10px;background:rgba(255,255,255,0.9);border-radius:2px;}
+.coach-loco-stripe{position:absolute;bottom:0;left:0;right:0;height:4px;background:var(--accent);border-radius:0 0 0 8px;opacity:0.8;}
+.coach-loco-lbl{font-family:var(--sans);font-size:9px;font-weight:600;color:var(--muted);opacity:0;}
+/* Coach */
+.coach-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.coach-car{height:26px;background:var(--ink2);border-radius:3px;position:relative;width:32px;}
+.coach-car-windows{position:absolute;top:5px;left:4px;right:4px;display:flex;gap:3px;}
+.coach-car-win{flex:1;height:8px;background:rgba(255,255,255,0.15);border-radius:1px;}
+.coach-car-stripe{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,0.1);border-radius:0 0 3px 3px;}
+.coach-car.occ-low{background:#1a6b3c;}
+.coach-car.occ-med{background:#b5620f;}
+.coach-car.occ-high{background:#991b1b;}
+.coach-lbl{font-family:var(--sans);font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.3px;}
+/* Rail */
+.dash-coaches-rail{height:2px;background:var(--rule);border-radius:1px;margin:4px 0 10px;width:100%;}
+.dash-coaches-note{font-family:var(--sans);font-size:11px;color:var(--muted);display:flex;gap:8px;align-items:baseline;}
+.dash-coaches-count{font-family:var(--serif);font-size:17px;font-weight:700;color:var(--ink);}
 
 /* POSITION BAR station labels */
 .dash-pos-stop-labels{position:relative;height:24px;margin:0 8px;}
@@ -461,7 +466,7 @@ body.dash-open{overflow:hidden;position:fixed;width:100%;}
 <script>
 // App version — increment: MAJOR.MINOR.PATCH
 // MAJOR: breaking changes, MINOR: new features, PATCH: bug fixes
-const APP_VERSION = '2.0.7';
+const APP_VERSION = '2.1.9';
 const HUXLEY_BASE  = 'https://national-rail-api.davwheat.dev';
 const HUXLEY_TOKEN = 'daa42fa5-d0c0-4f65-a398-dceb8327586d';
 
@@ -492,10 +497,6 @@ async function fetchTimetable(fc, tc, dateStr, timeStr) {
   const [rh, rm] = (timeStr || '00:00').split(':').map(Number);
   const fromMins = rh * 60 + rm;
 
-  // Build reverse lookup: operator name → code from OPERATOR_BRAND
-  const NAME_TO_CODE = {};
-  Object.entries(OPERATOR_BRAND).forEach(([code, b]) => { if (b.name) NAME_TO_CODE[b.name] = code; });
-
   return services
     .filter(s => {
       if (!s.std) return true;
@@ -503,7 +504,10 @@ async function fetchTimetable(fc, tc, dateStr, timeStr) {
       return (h * 60 + m) >= fromMins;
     })
     .map(s => {
-      const opCode = s.operatorCode || NAME_TO_CODE[s.operator] || '';
+      // Resolve operator code — try stored code first, then name lookup
+      const opCode = s.operatorCode
+        || OPERATOR_NAME_TO_CODE[(s.operator || '').toLowerCase().trim()]
+        || '';
       return {
         std: s.std,
         etd: s.std,
@@ -1272,16 +1276,15 @@ async function fetchTrains(offset, mode) {
 
   empty.style.display = 'none';
 
-  const BATCH = PAGE_SIZE; // how many trains to fetch per request
+  const BATCH = PAGE_SIZE;
 
   if (mode === 'replace') {
     loading.classList.add('show'); list.innerHTML = ''; loadedSvcs = []; lastShownStd = null;
     lbl.textContent = 'Fetching live trains…';
   } else {
-    lbl.textContent = mode === 'later' ? 'Loading later trains…' : 'Loading earlier trains…';
-    loading.classList.add('show');
+    // For earlier/later: just mark button as busy, don't show skeleton over existing cards
     const btn = document.getElementById(mode === 'later' ? 'btnLater' : 'btnEarlier');
-    if (btn) { btn.classList.add('busy'); btn.textContent = 'Loading…'; }
+    if (btn) btn.classList.add('busy');
   }
 
 
@@ -1386,29 +1389,53 @@ async function fetchTrains(offset, mode) {
     const raw = await fetchEnough(offset);
     loading.classList.remove('show');
 
-    // Sort chronologically
+    // Sort chronologically, with recently departed trains at the top
     const base = ((nowMins() + offset) % 1440 + 1440) % 1440;
     raw.sort((a, b) => {
       const da = (toMins(a.std) - base + 1440) % 1440;
       const db = (toMins(b.std) - base + 1440) % 1440;
+      // Departed trains sort before upcoming (they have small da/db relative to now)
       return da - db;
+    });
+
+    // Tag recently departed trains (departed within 30 mins, not delayed)
+    const nowM = nowMins();
+    raw.forEach(s => {
+      const sm = toMins(s.std);
+      const minsAgo = (nowM - sm + 1440) % 1440;
+      const isDelayed = s.etd && s.etd !== 'On time' && s.etd !== s.std && s.etd !== 'Cancelled';
+      if (minsAgo > 0 && minsAgo <= 30 && !isDelayed) {
+        s._departed = true;
+      }
     });
 
     let svcs;
     if (mode === 'later' && lastShownStd !== null) {
       const lastM = toMins(lastShownStd);
-      svcs = raw.filter(s => {
-        const diff = (toMins(s.std) - lastM + 1440) % 1440;
+      const shownIds = new Set(loadedSvcs.map(s => s.serviceID).filter(Boolean));
+      const candidates = raw.filter(s => {
+        if (shownIds.has(s.serviceID) && s.serviceID) return false;
+        const sm = toMins(s.std);
+        const diff = (sm - lastM + 1440) % 1440;
         return diff > 0 && diff < 720;
-      }).slice(0, BATCH);
+      });
+      console.log(`[Later] lastShownStd=${lastShownStd} lastM=${lastM} raw=${raw.length} candidates=${candidates.length}`);
+      raw.forEach(s => console.log(`  raw: ${s.std} diff=${((toMins(s.std)-lastM+1440)%1440)}`));
+      svcs = candidates.slice(0, BATCH);
     } else if (mode === 'earlier') {
-      const boundary = loadedSvcs[0]?.std;
-      if (boundary) {
-        const boundaryM = toMins(boundary);
-        svcs = raw.filter(s => {
-          const diff = (boundaryM - toMins(s.std) + 1440) % 1440;
+      const firstShownStd = loadedSvcs[0]?.std;
+      if (firstShownStd) {
+        const firstM = toMins(firstShownStd);
+        const shownIds = new Set(loadedSvcs.map(s => s.serviceID).filter(Boolean));
+        const candidates = raw.filter(s => {
+          if (shownIds.has(s.serviceID) && s.serviceID) return false;
+          const sm = toMins(s.std);
+          const diff = (firstM - sm + 1440) % 1440;
           return diff > 0 && diff < 720;
-        }).slice(-BATCH);
+        });
+        console.log(`[Earlier] firstShownStd=${firstShownStd} firstM=${firstM} raw=${raw.length} candidates=${candidates.length}`);
+        raw.forEach(s => console.log(`  raw: ${s.std} diff=${((firstM-toMins(s.std)+1440)%1440)}`));
+        svcs = candidates.slice(-BATCH);
       } else {
         svcs = raw.slice(0, BATCH);
       }
@@ -1465,6 +1492,13 @@ async function fetchTrains(offset, mode) {
       return;
     }
 
+    if ((mode === 'later' || mode === 'earlier') && !svcs.length) {
+      // No new trains found — reset the button
+      const btn = document.getElementById(mode === 'later' ? 'btnLater' : 'btnEarlier');
+      if (btn) btn.classList.remove('busy');
+      return;
+    }
+
     if (mode === 'replace') {
       const hdr = document.createElement('div'); hdr.className='res-hdr';
       hdr.innerHTML = `<div class="res-rt">${curFrom.split(' ')[0]} → ${curTo.split(' ')[0]}</div><div class="res-ct" id="resCt">${svcs.length} trains</div>`;
@@ -1499,7 +1533,9 @@ async function fetchTrains(offset, mode) {
         if (s._isTimetable && s._date) return s;
         const sm = toMins(s.std);
         if (sm < 0) return { ...s, _date: todayStr };
-        const dateStr = sm >= nowM ? todayStr : tomorrowStr;
+        // Only mark as tomorrow if train departed more than 30 mins ago
+        // (recently departed trains still show in the board and are still today)
+        const dateStr = (sm >= nowM - 30) ? todayStr : tomorrowStr;
         return { ...s, _date: dateStr };
       });
     }
@@ -1599,7 +1635,9 @@ async function fetchTrains(offset, mode) {
       btnE.classList.remove('busy');
       btnE.onclick = () => {
         btnE.classList.add('busy');
-        const startMins = (toMins(firstCardStd) - 240 + 1440) % 1440;
+        // Fetch starting 2 hours before the first visible train
+        const firstMins = toMins(firstCardStd);
+        const startMins = (firstMins - 120 + 1440) % 1440;
         fetchTrains(minsToOffset(startMins), 'earlier');
       };
     } else {
@@ -1611,7 +1649,9 @@ async function fetchTrains(offset, mode) {
       btnL.classList.remove('busy');
       btnL.onclick = () => {
         btnL.classList.add('busy');
-        const startMins = (toMins(lastShownStd) + 1 + 1440) % 1440;
+        // Fetch starting 1 minute after the last visible train
+        const lastMins = toMins(lastShownStd);
+        const startMins = (lastMins + 1 + 1440) % 1440;
         fetchTrains(minsToOffset(startMins), 'later');
       };
     } else {
@@ -1620,7 +1660,14 @@ async function fetchTrains(offset, mode) {
 
   } catch(err) {
     loading.classList.remove('show');
-    list.innerHTML = `<div class="err-box"><strong>Could not load trains</strong>${err.message}</div>`;
+    // Reset both buttons if they were in busy state
+    const bE = document.getElementById('btnEarlier');
+    const bL = document.getElementById('btnLater');
+    if (bE) bE.classList.remove('busy');
+    if (bL) bL.classList.remove('busy');
+    if (mode === 'replace') {
+      list.innerHTML = `<div class="err-box"><strong>Could not load trains</strong>${err.message}</div>`;
+    }
   }
 }
 
@@ -1667,39 +1714,55 @@ const OPERATOR_NAME_TO_CODE = {};
 Object.entries(OPERATOR_BRAND).forEach(([code, b]) => {
   if (b.name) OPERATOR_NAME_TO_CODE[b.name.toLowerCase()] = code;
 });
-// Extra aliases for common CIF name variations
+// Extra aliases for common CIF/ATOC name variations from timetable.json
 Object.assign(OPERATOR_NAME_TO_CODE, {
   'transpennine express': 'TP',
+  'transpennine': 'TP',
+  'tpe': 'TP',
   'northern trains': 'NT',
   'northern': 'NT',
   'great western railway': 'GW',
   'gwr': 'GW',
   'avanti west coast': 'VT',
+  'avanti': 'VT',
   'london north eastern railway': 'LN',
   'lner': 'LN',
   'crosscountry': 'XC',
   'cross country': 'XC',
+  'cross country trains': 'XC',
   'east midlands railway': 'EM',
+  'east midlands trains': 'EM',
+  'emr': 'EM',
   'grand central': 'GC',
+  'grand central railway': 'GC',
   'hull trains': 'HT',
   'lumo': 'LD',
   'heathrow express': 'HX',
   'great northern': 'GN',
+  'great northern rail': 'GN',
   'thameslink': 'TL',
   'southern': 'SN',
   'southeastern': 'SE',
+  'south eastern': 'SE',
   'south western railway': 'SW',
+  'swr': 'SW',
   'greater anglia': 'GA',
   'c2c': 'CC',
   'london overground': 'LO',
   'west midlands trains': 'LM',
   'west midlands railway': 'LM',
+  'wmr': 'LM',
   'chiltern railways': 'CH',
+  'chiltern': 'CH',
   'merseyrail': 'ME',
   'scotrail': 'SR',
   'elizabeth line': 'XR',
   'transport for wales': 'TW',
+  'tfw': 'TW',
+  'transport for wales rail': 'TW',
   'caledonian sleeper': 'CS',
+  'gatwick express': 'GX',
+  'island line': 'IL',
 });
 
 // ════════════════════════════════════════
@@ -1865,8 +1928,9 @@ function makeCard(svc) {
   const etd = svc.etd || '';
   const isCx   = svc.isCancelled || etd === 'Cancelled';
   const isLate = !isCx && etd && etd !== 'On time' && etd !== dep;
-  const cls  = isCx ? 'cancelled' : isLate ? 'delayed' : 'on-time';
-  const lbl  = isCx ? 'Cancelled' : isLate ? etd : 'On time';
+  const isDeparted = !!svc._departed;
+  const cls  = isCx ? 'cancelled' : isLate ? 'delayed' : isDeparted ? 'departed' : 'on-time';
+  const lbl  = isCx ? 'Cancelled' : isLate ? etd : isDeparted ? 'Departed' : 'On time';
   const arr  = getArrival(svc);
   const dur  = getDuration(svc);
   const plt  = svc.platform;
@@ -2055,7 +2119,8 @@ function buildPtsFromService(detail, svc) {
   const [dh=0,dm=0] = (svc.std||'00:00').split(':').map(Number);
   const dt = new Date(); dt.setHours(dh,dm,0,0);
   pts.push({name:detail.locationName||curFrom,crs:detail.crs,planned:svc.std,est:svc.etd,actual:svc.atd,plt:svc.platform||detail.platform,isOri:true,passed:now>dt});
-  next.forEach(cp => pts.push({name:cp.locationName||cp.crs,crs:cp.crs,planned:cp.st,est:cp.et,actual:cp.at,plt:cp.platform,passed:!!(cp.at&&cp.at!=='No report'&&cp.at!=='On time')}));
+  next.forEach(cp => pts.push({name:cp.locationName||cp.crs,crs:cp.crs,planned:cp.st,est:cp.et,actual:cp.at,plt:cp.platform,
+    passed:!!(cp.at && cp.at!=='No report' && cp.at!=='On time' && cp.at!==cp.st)}));
   return pts;
 }
 
@@ -2243,111 +2308,108 @@ function buildCoachDiagram(svc) {
     ? coaches.map(c => ({ letter: c.number || '?', loading: c.loading || null }))
     : Array.from({ length }, (_, i) => ({ letter: String.fromCharCode(65 + i), loading: null }));
 
-  const engineSVG = `<svg viewBox="0 0 48 58" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:48px;height:58px;flex-shrink:0;">
-    <rect x="2" y="8" width="42" height="28" rx="5" fill="var(--ink)"/>
-    <rect x="30" y="3" width="10" height="7" rx="2" fill="var(--ink)"/>
-    <rect x="2" y="30" width="42" height="4" fill="var(--accent)" opacity="0.8"/>
-    <rect x="6" y="13" width="10" height="10" rx="2" fill="rgba(255,255,255,0.85)"/>
-    <rect x="20" y="13" width="6" height="10" rx="1" fill="rgba(255,255,255,0.25)"/>
-    <rect x="29" y="13" width="6" height="10" rx="1" fill="rgba(255,255,255,0.25)"/>
-    <circle cx="12" cy="44" r="6" fill="var(--ink2)" stroke="var(--rule)" stroke-width="2"/>
-    <circle cx="12" cy="44" r="2.5" fill="var(--rule)"/>
-    <circle cx="36" cy="44" r="6" fill="var(--ink2)" stroke="var(--rule)" stroke-width="2"/>
-    <circle cx="36" cy="44" r="2.5" fill="var(--rule)"/>
-    <line x1="0" y1="51" x2="48" y2="51" stroke="var(--ink2)" stroke-width="2.5" stroke-linecap="round"/>
-    <text x="24" y="57" font-family="Arial,sans-serif" font-size="7" font-weight="700" fill="transparent">loco</text>
-  </svg>`;
+  const locoHTML = `
+    <div class="coach-loco-wrap">
+      <div class="coach-loco-car">
+        <div class="coach-loco-cab"></div>
+        <div class="coach-loco-stripe"></div>
+      </div>
+      <div class="coach-loco-lbl">·</div>
+    </div>`;
 
   const coachesHTML = coachList.map(c => {
-    const loadColour = c.loading === 'High' ? '#b5620f'
-      : c.loading === 'Medium' ? '#d4910a'
-      : c.loading === 'Low' ? '#1a6b3c'
-      : 'var(--ink)';
-    return `<div class="coach">
-      <div class="coach-body" style="background:${loadColour};">
-        <div class="coach-windows">
-          <div class="coach-win"></div><div class="coach-win"></div><div class="coach-win"></div>
+    const occCls = c.loading === 'High' ? 'occ-high'
+      : c.loading === 'Medium' ? 'occ-med'
+      : c.loading === 'Low' ? 'occ-low' : '';
+    return `<div class="coach-wrap">
+      <div class="coach-car ${occCls}">
+        <div class="coach-car-windows">
+          <div class="coach-car-win"></div>
+          <div class="coach-car-win"></div>
+          <div class="coach-car-win"></div>
         </div>
-        <div class="coach-rail"></div>
+        <div class="coach-car-stripe"></div>
       </div>
-      <div class="coach-letter-below">${c.letter}</div>
+      <div class="coach-lbl">${c.letter}</div>
     </div>`;
   }).join('');
 
   const hasLoading = coachList.some(c => c.loading);
-  const note = hasLoading
-    ? `<div class="dash-coaches-note" style="display:flex;gap:12px;">
-        <span style="color:#1a6b3c">● Low</span>
-        <span style="color:#d4910a">● Medium</span>
-        <span style="color:#b5620f">● High occupancy</span>
-      </div>`
-    : `<div class="dash-coaches-note">${coachList.length} coaches · front of train on left</div>`;
+  const noteContent = hasLoading
+    ? `<span style="color:#1a6b3c;font-size:10px;">● Low</span>
+       <span style="color:#b5620f;font-size:10px;">● Medium</span>
+       <span style="color:#991b1b;font-size:10px;">● High</span>`
+    : `<span class="dash-coaches-count">${coachList.length}</span><span>coaches</span>`;
 
   return `<div class="dash-coaches">
-    <div class="dash-coaches-lbl">Train formation</div>
+    <div class="dash-coaches-lbl">Formation</div>
     <div class="dash-coaches-scroll">
-      <div class="dash-coaches-row">
-        ${engineSVG}
-        ${coachesHTML}
+      <div class="dash-coaches-track">
+        ${locoHTML}${coachesHTML}
       </div>
+      <div class="dash-coaches-rail"></div>
     </div>
-    ${note}
+    <div class="dash-coaches-note">${noteContent}</div>
   </div>`;
 }
 
 function buildPositionBarHTML(pts, posPct, hasMoved, isComplete, isCx, lastPassedIdx) {
   if (pts.length < 2) return '';
 
-  // Dots for each stop
-  const dotsHTML = pts.map((p, i) => {
-    const pct = (i / (pts.length - 1)) * 100;
-    const isPassed = i <= lastPassedIdx;
-    return `<div class="dash-pos-dot ${isPassed ? 'passed' : ''}" style="left:${pct}%"></div>`;
-  }).join('');
-
-  // Station labels — show first, last, and ~2 intermediate
-  const labelSet = new Set([0, pts.length - 1]);
-  if (pts.length > 2) {
-    const step = Math.max(1, Math.floor((pts.length - 1) / 3));
-    for (let i = step; i < pts.length - 1; i += step) labelSet.add(i);
-  }
-  const labelsHTML = [...labelSet].sort((a,b)=>a-b).map(i => {
-    const pct = (i / (pts.length - 1)) * 100;
-    const name = (pts[i]?.name || '').split(' ')[0]; // first word only
-    const align = i === 0 ? 'left' : i === pts.length-1 ? 'right' : 'center';
-    const transform = i === 0 ? 'translateX(0)' : i === pts.length-1 ? 'translateX(-100%)' : 'translateX(-50%)';
-    return `<div style="position:absolute;left:${pct}%;transform:${transform};font-family:var(--sans);font-size:8px;color:var(--muted);white-space:nowrap;text-align:${align};">${name}</div>`;
-  }).join('');
+  // Each stop gets a fixed slot width so labels never overlap
+  const SLOT = 64; // px per stop
+  const totalWidth = (pts.length - 1) * SLOT;
 
   const nextIdx = Math.min(lastPassedIdx + 1, pts.length - 1);
+
+  // Build dots and labels for every stop
+  const stopsHTML = pts.map((p, i) => {
+    const left = i * SLOT;
+    const isPassed = i <= lastPassedIdx;
+    const isCurrent = !isComplete && i === nextIdx && hasMoved;
+    const dotCls = isPassed ? 'passed' : isCurrent ? 'current' : '';
+    // Shorten name: drop "International", "Central" etc if too long
+    let name = p.name || '';
+    if (name.length > 12) name = name.replace(' International','').replace(' Central','').replace(' Parkway','').replace(' Airport','');
+    if (name.length > 12) name = name.split(' ').slice(0,2).join(' ');
+    const time = p.actual && p.actual !== 'No report' && p.actual !== 'On time' ? p.actual
+      : p.est && p.est !== 'No report' && p.est !== 'On time' ? p.est
+      : p.planned || '';
+    const timeColour = p.actual && p.actual !== p.planned ? '#b5620f' : 'var(--muted)';
+    return `
+      <div style="position:absolute;left:${left}px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;width:${SLOT}px;">
+        <div class="dash-pos-dot ${dotCls}" style="position:relative;transform:none;"></div>
+        <div style="font-family:var(--sans);font-size:8px;font-weight:${isPassed||isCurrent?'700':'400'};color:${isPassed||isCurrent?'var(--ink2)':'var(--muted)'};text-align:center;line-height:1.2;white-space:nowrap;">${name}</div>
+        <div style="font-family:var(--sans);font-size:8px;color:${timeColour};text-align:center;">${time}</div>
+      </div>`;
+  }).join('');
+
+  // Fill bar and train icon
+  const fillPct = isComplete ? 100 : hasMoved ? posPct : 0;
+  const trainLeft = (fillPct / 100) * totalWidth;
+  const trainIcon = hasMoved && !isComplete
+    ? `<div style="position:absolute;left:${trainLeft}px;top:50%;transform:translate(-50%,-50%) scaleX(-1);font-size:20px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));">🚂</div>`
+    : '';
+
   const statusLine = isCx ? 'Service cancelled'
     : isComplete ? `Arrived at <strong>${pts[pts.length-1].name}</strong>`
     : !hasMoved ? `Departing <strong>${pts[0].name}</strong>`
     : `Between <strong>${pts[lastPassedIdx]?.name}</strong> and <strong>${pts[nextIdx]?.name}</strong>`;
 
-  const trainIcon = hasMoved && !isComplete
-    ? `<div class="dash-pos-train" style="left:${posPct}%;transform:translate(-50%,-50%) scaleX(-1);">🚂</div>`
-    : '';
-
   return `<div class="dash-card dash-pos">
     <div class="dash-pos-lbl">Live position</div>
-    <div class="dash-pos-bar">
-      <div class="dash-pos-fill" style="width:${posPct}%"></div>
-      ${dotsHTML}
-      ${trainIcon}
-    </div>
-    <div style="position:relative;height:20px;margin:4px 8px 0;">${labelsHTML}</div>
-    <div class="dash-pos-ends" style="margin-top:6px;">
-      <div class="dash-pos-end">
-        <div class="dash-pos-end-nm">${pts[0].name}</div>
-        <div class="dash-pos-end-time">${pts[0].planned || ''}</div>
-      </div>
-      <div class="dash-pos-end right">
-        <div class="dash-pos-end-nm">${pts[pts.length-1].name}</div>
-        <div class="dash-pos-end-time">${pts[pts.length-1].planned || ''}</div>
+    <div id="dashPosScroll" data-train-px="${Math.round(trainLeft + SLOT / 2)}" style="overflow-x:auto;scrollbar-width:none;margin:0 -4px;padding:0 4px;">
+      <div style="position:relative;width:${totalWidth + SLOT}px;padding:8px ${SLOT/2}px 0;">
+        <div style="position:absolute;top:12px;left:${SLOT/2}px;right:${SLOT/2}px;height:4px;background:var(--rule);border-radius:2px;">
+          <div style="height:100%;width:${fillPct}%;background:linear-gradient(to right,var(--accent),#c47821);border-radius:2px;transition:width 0.8s ease;"></div>
+          ${trainIcon}
+        </div>
+        <div style="position:relative;height:64px;">
+          ${stopsHTML}
+        </div>
       </div>
     </div>
-    <div class="dash-pos-status">${statusLine}</div>
+    <div class="dash-pos-status" style="margin-top:8px;">${statusLine}</div>
   </div>`;
 }
 
@@ -2380,11 +2442,15 @@ function renderDashboard(svc, pts, fav) {
   // Operator display
   const opBadge = operatorBadge(svc.operatorCode || fav.operatorCode, svc.operator || fav.operator || '', true);
 
-  // Find live position: last passed stop and next upcoming stop
+  // A stop is only "passed" if it has a confirmed actual departure/arrival time
+  // Estimated times mean the train hasn't reached that stop yet
   let lastPassedIdx = -1;
   pts.forEach((p, i) => {
-    if (p.actual && p.actual !== 'No report' && p.actual !== 'On time') lastPassedIdx = i;
-    else if (p.passed) lastPassedIdx = i;
+    const hasActualTime = p.actual
+      && p.actual !== 'No report'
+      && p.actual !== 'On time'
+      && p.actual !== p.planned; // "On time" sometimes stored as the planned time
+    if (hasActualTime) lastPassedIdx = i;
   });
   const nextIdx = Math.min(lastPassedIdx + 1, pts.length - 1);
   const hasMoved = lastPassedIdx >= 0;
@@ -2472,6 +2538,15 @@ function renderDashboard(svc, pts, fav) {
     <div class="dash-sec-lbl">All stops</div>
     <div class="dash-stops">${stopsHTML}</div>
   `;
+
+  // Auto-scroll position bar so train is centred
+  requestAnimationFrame(() => {
+    const posScroll = document.getElementById('dashPosScroll');
+    if (posScroll) {
+      const trainPx = parseInt(posScroll.dataset.trainPx || '0');
+      posScroll.scrollLeft = trainPx - posScroll.offsetWidth / 2;
+    }
+  });
 }
 
 function formatStopTime(pt) {
